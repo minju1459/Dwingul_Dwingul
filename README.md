@@ -18,7 +18,8 @@ AI를 활용해서 뒹굴 뒹굴 프로젝트를 개발합니다.
 
 | # | 이름 | 스택 | 설명 |
 |---|------|------|------|
-| 01 | [starter](projects/01-starter/) | Next.js + TypeScript | 첫 스캐폴드 (주제 미정) |
+| 01 | [starter](projects/01-starter/) | Next.js + TypeScript | 모르는편지 — Y2K 윈도우 감성의 익명 편지 릴레이 |
+| 02 | [the-button](projects/02-the-button/) | Next.js + TypeScript | 이 세상에 하나뿐인 버튼 — 의미 없는 버튼 하나만 있는 사이트 |
 
 ## 새 프로젝트 추가하기
 
