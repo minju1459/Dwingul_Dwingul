@@ -67,7 +67,7 @@ export function Desktop({ previousLetter }: DesktopProps) {
                 }}
                 onClick={() => setStage("composing")}
               >
-                ✉ 답장 쓰기
+                ✉ 다음 접속자에게 편지 쓰기
               </button>
             </div>
           )}

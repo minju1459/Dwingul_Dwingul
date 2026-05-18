@@ -47,7 +47,7 @@ export function ComposeLetter({ sent, onSend }: ComposeLetterProps) {
   }
 
   return (
-    <Window title="답장 쓰기 - 모르는편지" width={420}>
+    <Window title="다음 접속자에게 편지 쓰기 - 모르는편지" width={420}>
       <div style={{ padding: "8px 4px" }}>
         <div
           style={{
@@ -56,7 +56,7 @@ export function ComposeLetter({ sent, onSend }: ComposeLetterProps) {
             marginBottom: 8,
           }}
         >
-          받는 사람: 다음 접속자 (익명)
+          받는 사람: 곧 접속할 모르는 누군가 (익명)
         </div>
 
         <textarea
