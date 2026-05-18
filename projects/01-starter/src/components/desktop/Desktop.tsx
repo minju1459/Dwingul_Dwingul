@@ -1,20 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Letter } from "@/lib/types";
 import { Taskbar } from "./Taskbar";
+import { BootScreen } from "./BootScreen";
 import { ReceivedLetter } from "@/components/letter/ReceivedLetter";
 import { ComposeLetter } from "@/components/letter/ComposeLetter";
 import { MailNotification } from "@/components/letter/MailNotification";
 
-type Stage = "notification" | "reading" | "composing" | "sent";
+type Stage = "booting" | "notification" | "reading" | "composing" | "sent";
 
 type DesktopProps = {
   previousLetter: Letter;
 };
 
+const NOTIFY_SOUND_SRC = "/sounds/notify.mp3";
+const NOTIFICATION_DELAY_MS = 300;
+
 export function Desktop({ previousLetter }: DesktopProps) {
-  const [stage, setStage] = useState<Stage>("notification");
+  const [stage, setStage] = useState<Stage>("booting");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleBootStart = () => {
+    const audio = new Audio(NOTIFY_SOUND_SRC);
+    audioRef.current = audio;
+    audio.play().catch(() => {
+      // 자동 재생이 막힌 경우 — 무음으로 진행
+    });
+    setTimeout(() => setStage("notification"), NOTIFICATION_DELAY_MS);
+  };
+
+  if (stage === "booting") {
+    return <BootScreen onStart={handleBootStart} />;
+  }
 
   return (
     <div
