@@ -67,12 +67,27 @@ label {
   font-family: var(--font-pixel) !important;
 }
 
+/* 윈도우 안은 옛날 윈도우 그대로: 회색 배경 + 검정 글자 */
+.window,
+.window-body,
+.window-body * {
+  color: #000;
+}
+
+.title-bar-text {
+  color: #fff;
+  font-size: 13px;
+}
+
 /* 한글 가독성을 위해 픽셀 폰트는 살짝 키워서 */
 .window-body {
   font-size: 14px;
   line-height: 1.6;
 }
 
-.title-bar-text {
-  font-size: 13px;
+/* 폼 컨트롤 색상 보장 */
+input,
+textarea {
+  color: #000;
+  background: #fff;
 }
