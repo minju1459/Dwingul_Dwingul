@@ -1,26 +1,78 @@
 @import "tailwindcss";
+@import "98.css/dist/98.css";
+
+@font-face {
+  font-family: "DungGeunMo";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.2/DungGeunMo.woff")
+    format("woff");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "NeoDGM";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2206-02@1.0/NeoDGM.woff")
+    format("woff");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-desktop: #0a0a12;
+  --bg-desktop-grad-1: #14142b;
+  --bg-desktop-grad-2: #050510;
+  --font-pixel: "DungGeunMo", "NeoDGM", "Galmuri11", "MS Sans Serif",
+    "Pixelated MS Sans Serif", monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-desktop);
+  background-image:
+    radial-gradient(
+      ellipse at 20% 10%,
+      var(--bg-desktop-grad-1) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 80% 90%,
+      var(--bg-desktop-grad-2) 0%,
+      transparent 50%
+    ),
+    linear-gradient(180deg, #0a0a14 0%, #050508 100%);
+  color: #e0e0e0;
+  font-family: var(--font-pixel);
+  overflow: hidden;
+}
+
+/* 98.css 위에 픽셀 폰트 강제 적용 */
+.window,
+.window-body,
+.title-bar,
+.title-bar-text,
+button,
+input,
+textarea,
+table,
+li,
+label {
+  font-family: var(--font-pixel) !important;
+}
+
+/* 한글 가독성을 위해 픽셀 폰트는 살짝 키워서 */
+.window-body {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.title-bar-text {
+  font-size: 13px;
 }
