@@ -1,18 +1,13 @@
-@import url("https://fonts.googleapis.com/css2?family=Hi+Melody&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap");
 @import "tailwindcss";
 
 :root {
-  --bg-night-1: #05050f;
-  --bg-night-2: #0a0a1f;
-  --bg-night-3: #02020a;
-  --text-soft: #d9d9e6;
-  --text-dim: #6b6b85;
-  --accent-red-1: #ff5a5a;
-  --accent-red-2: #c81e1e;
-  --accent-red-shadow: rgba(255, 60, 60, 0.4);
-  --font-cute: "Hi Melody", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  --font-led: "Share Tech Mono", "Courier New", monospace;
+  --bg: #000000;
+  --text-soft: #f0f0f5;
+  --text-dim: #6b6b80;
+  --font-display:
+    "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+    "Malgun Gothic", sans-serif;
 }
 
 html,
@@ -23,21 +18,9 @@ body {
 }
 
 body {
-  background: var(--bg-night-3);
-  background-image:
-    radial-gradient(
-      ellipse at 30% 20%,
-      var(--bg-night-2) 0%,
-      transparent 55%
-    ),
-    radial-gradient(
-      ellipse at 70% 80%,
-      var(--bg-night-1) 0%,
-      transparent 55%
-    ),
-    linear-gradient(180deg, var(--bg-night-3) 0%, #000 100%);
+  background: var(--bg);
   color: var(--text-soft);
-  font-family: var(--font-cute);
+  font-family: var(--font-display);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }

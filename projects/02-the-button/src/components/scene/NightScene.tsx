@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Stars } from "./Stars";
 import { LiveStats } from "@/components/stats/LiveStats";
 import { BigButton } from "@/components/button/BigButton";
 import { useFakeRealtime } from "@/hooks/useFakeRealtime";
@@ -29,27 +28,24 @@ export function NightScene() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: 40,
+        gap: 36,
         padding: 32,
       }}
     >
-      <Stars />
-
       <h1
         style={{
           position: "relative",
-          fontFamily: "var(--font-cute)",
-          fontSize: 28,
-          fontWeight: 400,
+          fontFamily: "var(--font-display)",
+          fontWeight: 700,
+          fontSize: 26,
           color: "var(--text-soft)",
-          letterSpacing: 2,
+          letterSpacing: 4,
           textAlign: "center",
           margin: 0,
-          opacity: 0.85,
           zIndex: 1,
         }}
       >
-        이 세상에 하나뿐인 버튼
+        안자는 사람
       </h1>
 
       <div style={{ position: "relative", zIndex: 1 }}>
@@ -69,29 +65,12 @@ export function NightScene() {
             inset: 0,
             pointerEvents: "none",
             background:
-              "radial-gradient(circle at center, rgba(255,90,90,0.06) 0%, transparent 60%)",
+              "radial-gradient(circle at center, rgba(255,90,90,0.05) 0%, transparent 60%)",
             animation: "global-ripple 0.9s ease-out forwards",
             zIndex: 0,
           }}
         />
       ))}
-
-      <div
-        style={{
-          position: "fixed",
-          bottom: 24,
-          left: 0,
-          right: 0,
-          textAlign: "center",
-          fontFamily: "var(--font-cute)",
-          fontSize: 13,
-          color: "var(--text-dim)",
-          letterSpacing: 1,
-          zIndex: 1,
-        }}
-      >
-        지금도 누군가는 누르고 있습니다
-      </div>
 
       <style>{`
         @keyframes global-ripple {

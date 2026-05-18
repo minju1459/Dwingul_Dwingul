@@ -28,22 +28,25 @@ export function LiveStats({ state }: LiveStatsProps) {
       <div>
         <div
           style={{
-            fontFamily: "var(--font-cute)",
-            fontSize: 18,
+            fontFamily: "var(--font-display)",
+            fontWeight: 500,
+            fontSize: 16,
             color: "var(--text-dim)",
-            letterSpacing: 1,
-            marginBottom: 6,
+            letterSpacing: 2,
+            marginBottom: 8,
           }}
         >
           현재 깨어있는 사람
         </div>
         <div
           style={{
-            fontFamily: "var(--font-led)",
-            fontSize: 40,
+            fontFamily: "var(--font-display)",
+            fontWeight: 900,
+            fontSize: 44,
             color: "var(--text-soft)",
-            letterSpacing: 3,
+            letterSpacing: 1,
             fontVariantNumeric: "tabular-nums",
+            lineHeight: 1,
           }}
         >
           {state.awakeCount.toLocaleString()}명
@@ -53,10 +56,11 @@ export function LiveStats({ state }: LiveStatsProps) {
       <div>
         <div
           style={{
-            fontFamily: "var(--font-cute)",
-            fontSize: 14,
+            fontFamily: "var(--font-display)",
+            fontWeight: 500,
+            fontSize: 13,
             color: "var(--text-dim)",
-            letterSpacing: 1,
+            letterSpacing: 2,
             marginBottom: 4,
           }}
         >
@@ -64,10 +68,11 @@ export function LiveStats({ state }: LiveStatsProps) {
         </div>
         <div
           style={{
-            fontFamily: "var(--font-led)",
+            fontFamily: "var(--font-display)",
+            fontWeight: 900,
             fontSize: 22,
             color: "var(--text-soft)",
-            letterSpacing: 2,
+            letterSpacing: 1,
             fontVariantNumeric: "tabular-nums",
           }}
         >
