@@ -48,9 +48,9 @@ export function BigButton({ onPress, lastPress }: BigButtonProps) {
       >
         <defs>
           <radialGradient id="baseTopGrad" cx="50%" cy="35%" r="65%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="65%" stopColor="#ebebef" />
-            <stop offset="100%" stopColor="#a8a8b2" />
+            <stop offset="0%" stopColor="#e6e6ec" />
+            <stop offset="55%" stopColor="#c8c8d2" />
+            <stop offset="100%" stopColor="#8e8e98" />
           </radialGradient>
 
           <linearGradient id="baseSideGrad" x1="0" x2="1" y1="0" y2="0">
@@ -147,15 +147,6 @@ export function BigButton({ onPress, lastPress }: BigButtonProps) {
             ry="10"
             fill="url(#discHighlight)"
           />
-
-          {/* 윗면 가느다란 빛 반사선 */}
-          <ellipse
-            cx="220"
-            cy="132"
-            rx="105"
-            ry="2"
-            fill="rgba(255,255,255,0.45)"
-          />
         </g>
 
         {/* === 흰 받침대 윗면 — 디스크 다음에 그려서 디스크 하단을 가림 === */}
@@ -167,22 +158,20 @@ export function BigButton({ onPress, lastPress }: BigButtonProps) {
           fill="url(#baseTopGrad)"
         />
 
-        {/* 받침 윗면 안쪽 음각 그림자 (디스크가 살짝 박혀 보이는 효과) */}
+        {/* 디스크 밑의 그림자 — 디스크가 받침에 박혀 보이는 효과 */}
         <ellipse
           cx="220"
-          cy="223"
+          cy="218"
           rx="140"
-          ry="14"
-          fill="rgba(0,0,0,0.22)"
+          ry="16"
+          fill="rgba(0,0,0,0.55)"
         />
-
-        {/* 받침 윗면 살짝 빛 반사 */}
         <ellipse
           cx="220"
-          cy="216"
-          rx="170"
-          ry="2"
-          fill="rgba(255,255,255,0.6)"
+          cy="220"
+          rx="135"
+          ry="12"
+          fill="rgba(0,0,0,0.4)"
         />
       </svg>
 
