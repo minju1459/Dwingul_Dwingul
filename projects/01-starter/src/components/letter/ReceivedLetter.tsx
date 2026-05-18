@@ -18,7 +18,10 @@ function formatDate(d: Date) {
 
 export function ReceivedLetter({ letter }: ReceivedLetterProps) {
   return (
-    <Window title="받은 편지 - 모르는편지" width={440}>
+    <Window
+      title={`${letter.chainNumber.toLocaleString()}번째 받은 편지 - 모르는편지`}
+      width={440}
+    >
       <div style={{ padding: "8px 4px 4px" }}>
         <div
           style={{

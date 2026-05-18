@@ -1,51 +1,85 @@
 import type { Letter, LetterRepository } from "./types";
 
-const SAMPLE_LETTERS: Letter[] = [
+type SampleLetter = Omit<Letter, "chainNumber">;
+
+const SAMPLE_LETTERS: SampleLetter[] = [
   {
     id: "sample-001",
-    body: `안녕하세요, 모르는 사람.
+    body: `오늘 진짜 개힘든 하루엿ㄷr…
+실수도 개마니하구… 마음도 찢어졋ㄷr…
+화장실에서 몰래 눈물뚝뚝햇는데
+집와서 결국 펑펑 울엇ㄷr…☆
 
-오늘은 비가 왔어요. 창문을 열어두고 한참을 멍하니 빗소리를 들었어요.
-요즘 자주 외롭다는 생각을 해요. 그런데 이 편지를 쓰니까 조금 덜 외로워지는 것 같아요.
+근데 울고잇는 내모습 보니까
+또 그런 내가 싫어졋ㄷr…
+왜케 바보같은지 몰겟ㄷr 정말루…
 
-당신이 이 편지를 읽고 있다면, 당신도 무언가를 견디고 있는 사람일 거예요.
-잘 견뎌요, 우리.
-
-— 누군가로부터`,
+지금은 Y 들으면서
+감성에 젖어잇ㄷr…
+2005 감성 ON…★
+오늘만큼은 그냥 슬퍼해볼ㄹH… ∘₊✧────✧₊∘`,
     createdAt: new Date("2026-05-18T22:14:00"),
   },
   {
     id: "sample-002",
-    body: `오늘 처음으로 모르는 사람한테 편지를 써요.
+    body: `새벽 3시 22분…☆
+다들 자는데 나만 깨어잇ㄷr…
 
-기분이 이상하네요. 누구한테 보낼지도 모르고, 누가 읽을지도 모르는데.
-그래서 더 솔직해질 수 있는 것 같기도 해요.
+오늘 친구한테 톡 보냇는데
+읽씹당햇ㄷr…
+별것도 아닌ㄷH 왜 이렇게 신경쓰이ㅈl…
 
-요즘 자기 전에 천장을 한참 봐요. 별일 없는데 잠이 안 와요.
-이 편지가 누군가에게 닿길 바라며.`,
+이런 내가 좀 피곤햇으면 좋겟ㄷr
+근ㄷH 어쩔 수 없는 ㄱr ㄱr튼ㄷr…
+
+자고 일어나면 괜찮아ㅈl겟ㅈl…?
+오늘 밤만 좀 약해질ㄹH… ★━♡━★`,
     createdAt: new Date("2026-05-18T03:42:00"),
   },
   {
     id: "sample-003",
-    body: `안녕, 낯선 사람.
+    body: `오늘 ㅇl상하게 너 생각이 났ㄷr…
+다 잊은 줄 알앗는데…
 
-작년에 키우던 고양이가 무지개 다리를 건넜어요.
-오늘 그 아이 사진을 오랜만에 봤는데, 이상하게 마음이 따뜻해졌어요.
-처음엔 보기만 해도 울었는데, 이제는 미소가 나요.
+길 가다가 너랑 같은 향수 향기 ㅁr앗ㄷr…
+순간 ㅅl간이 멈춘 줄 알앗엇ㄷr…
+근ㄷH 너가 ㅇr니엿ㄷr…
 
-시간이 정말 무섭게 사람을 낫게 하네요.
-당신도 무엇이든 그렇게 지나갈 거예요.`,
+ㅂr보같ㅈl…?
+다 잊은 척 햇는데
+ㅇr직도 마음 한구석엔 너 잇엇네…
+
+ㅇl 편지 받은 너도
+잊고 싶은 누군가 잇으ㄴl…
+∘₊✧────✧₊∘`,
     createdAt: new Date("2026-05-17T19:08:00"),
   },
 ];
+
+/** 체인 위치를 흉내내는 가짜 카운터.
+ * 실제 백엔드 붙으면 DB의 진짜 순번으로 교체. */
+function makeFakeChainNumber(): number {
+  return Math.floor(Math.random() * 1700) + 800;
+}
+
+export function pickRandomLetter(): Letter {
+  const idx = Math.floor(Math.random() * SAMPLE_LETTERS.length);
+  return {
+    ...SAMPLE_LETTERS[idx],
+    chainNumber: makeFakeChainNumber(),
+  };
+}
 
 let cursor = 0;
 
 export const mockRepository: LetterRepository = {
   async getPreviousLetter() {
-    const letter = SAMPLE_LETTERS[cursor % SAMPLE_LETTERS.length];
+    const sample = SAMPLE_LETTERS[cursor % SAMPLE_LETTERS.length];
     cursor += 1;
-    return letter;
+    return {
+      ...sample,
+      chainNumber: makeFakeChainNumber(),
+    };
   },
 
   async sendLetter(body: string) {
@@ -56,8 +90,3 @@ export const mockRepository: LetterRepository = {
     return { id };
   },
 };
-
-export function pickRandomLetter(): Letter {
-  const idx = Math.floor(Math.random() * SAMPLE_LETTERS.length);
-  return SAMPLE_LETTERS[idx];
-}
