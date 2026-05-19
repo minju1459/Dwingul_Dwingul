@@ -8,17 +8,27 @@ type SongCardProps = {
   onClose: () => void;
 };
 
+const VISIBLE_MS = 2000;
+
 export function SongCard({ song, onClose }: SongCardProps) {
   const [entered, setEntered] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    const id = requestAnimationFrame(() => setEntered(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
+    const enterId = requestAnimationFrame(() => setEntered(true));
+    const leaveTimer = setTimeout(() => setLeaving(true), VISIBLE_MS);
+    const closeTimer = setTimeout(onClose, VISIBLE_MS + 400);
+    return () => {
+      cancelAnimationFrame(enterId);
+      clearTimeout(leaveTimer);
+      clearTimeout(closeTimer);
+    };
+  }, [onClose]);
+
+  const visible = entered && !leaving;
 
   return (
     <div
-      onClick={onClose}
       style={{
         position: "fixed",
         inset: 0,
@@ -26,35 +36,34 @@ export function SongCard({ song, onClose }: SongCardProps) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: entered ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0)",
-        transition: "background 0.5s ease",
-        cursor: "default",
+        background: visible ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0)",
+        transition: "background 0.4s ease",
+        pointerEvents: "none",
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
           position: "relative",
-          width: "min(420px, 84vw)",
-          padding: "44px 32px 40px",
-          background: "var(--paper)",
-          color: "var(--paper-ink)",
+          width: "min(360px, 80vw)",
+          padding: "36px 28px",
+          background: "#f5f1e6",
+          color: "#1a1a18",
           fontFamily: "var(--font-display)",
+          textAlign: "center",
           boxShadow:
-            "0 28px 60px rgba(0,0,0,0.55), 0 8px 16px rgba(0,0,0,0.4), inset 0 0 60px rgba(180,160,110,0.3)",
-          borderRadius: "10px 14px 8px 16px / 12px 8px 14px 10px",
-          transform: entered
-            ? "scale(1) rotate(-1.4deg)"
-            : "scale(0.92) rotate(-1.4deg)",
-          opacity: entered ? 1 : 0,
-          filter: entered ? "blur(0)" : "blur(5px)",
+            "0 24px 50px rgba(0,0,0,0.55), 0 6px 14px rgba(0,0,0,0.35)",
+          transform: visible
+            ? "rotate(-1deg) scale(1)"
+            : leaving
+              ? "rotate(-1deg) scale(0.98) translateY(-6px)"
+              : "rotate(-1deg) scale(0.94)",
+          opacity: visible ? 1 : 0,
+          filter: visible ? "blur(0)" : "blur(3px)",
           transition:
-            "transform 0.65s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.55s ease, filter 0.65s ease",
-          animation: entered ? "paper-settle 0.85s ease-out" : undefined,
-          cursor: "pointer",
+            "transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease, filter 0.4s ease",
         }}
       >
-        {/* 종이 결 */}
+        {/* 종이 결 (아주 옅게) */}
         <div
           aria-hidden
           style={{
@@ -62,81 +71,32 @@ export function SongCard({ song, onClose }: SongCardProps) {
             inset: 0,
             pointerEvents: "none",
             background:
-              "repeating-linear-gradient(135deg, rgba(0,0,0,0.02) 0 1px, transparent 1px 28px), repeating-linear-gradient(45deg, rgba(0,0,0,0.015) 0 1px, transparent 1px 18px)",
-            borderRadius: "inherit",
-          }}
-        />
-        {/* 잉크 얼룩 */}
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            top: 18,
-            right: 26,
-            width: 14,
-            height: 11,
-            background: "rgba(40,40,30,0.18)",
-            borderRadius: "60% 40% 50% 70% / 50% 60% 40% 60%",
-            filter: "blur(1.5px)",
-          }}
-        />
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            bottom: 22,
-            left: 30,
-            width: 9,
-            height: 7,
-            background: "rgba(40,40,30,0.16)",
-            borderRadius: "60% 40% 70% 50% / 40% 60% 50% 60%",
-            filter: "blur(1px)",
+              "repeating-linear-gradient(132deg, rgba(0,0,0,0.018) 0 1px, transparent 1px 32px)",
           }}
         />
 
         <div
           style={{
-            position: "relative",
-            textAlign: "center",
-            fontFamily: "var(--font-display)",
+            fontWeight: 700,
+            fontSize: 14,
+            letterSpacing: 2,
+            opacity: 0.55,
+            marginBottom: 14,
           }}
         >
-          <div
-            style={{
-              fontWeight: 500,
-              fontSize: 13,
-              letterSpacing: 4,
-              color: "rgba(40,40,30,0.55)",
-              marginBottom: 18,
-            }}
-          >
-            ── 잡았다 ──
-          </div>
-          <div
-            style={{
-              fontWeight: 900,
-              fontSize: "clamp(22px, 4.5vw, 32px)",
-              letterSpacing: 1,
-              lineHeight: 1.35,
-            }}
-          >
-            {song.artist}
-            <br />
-            <span style={{ opacity: 0.75, fontWeight: 700, fontSize: "0.85em" }}>
-              {song.title}
-            </span>
-          </div>
+          {song.artist}
+        </div>
+        <div
+          style={{
+            fontWeight: 900,
+            fontSize: "clamp(22px, 4.8vw, 30px)",
+            letterSpacing: 1,
+            lineHeight: 1.3,
+          }}
+        >
+          {song.title}
         </div>
       </div>
-
-      <style>{`
-        @keyframes paper-settle {
-          0%   { transform: scale(0.92) rotate(-1.4deg) translateY(-6px); }
-          40%  { transform: scale(1.02) rotate(-1.8deg) translateY(2px); }
-          70%  { transform: scale(0.99) rotate(-1.2deg) translateY(-1px); }
-          100% { transform: scale(1) rotate(-1.4deg) translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }
