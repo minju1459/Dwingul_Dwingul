@@ -36,9 +36,9 @@ body {
 }
 
 @keyframes cat-walking {
-  0%   { translate: 0 0;    rotate: -1.2deg; }
-  25%  { translate: 0 -2px; rotate:  0deg;   }
-  50%  { translate: 0 0;    rotate:  1.2deg; }
-  75%  { translate: 0 -2px; rotate:  0deg;   }
-  100% { translate: 0 0;    rotate: -1.2deg; }
+  0%   { translate: 0 0;    rotate: -0.6deg; }
+  25%  { translate: 0 -1px; rotate:  0deg;   }
+  50%  { translate: 0 0;    rotate:  0.6deg; }
+  75%  { translate: 0 -1px; rotate:  0deg;   }
+  100% { translate: 0 0;    rotate: -0.6deg; }
 }
