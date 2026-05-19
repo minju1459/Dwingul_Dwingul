@@ -28,8 +28,8 @@ function rand(min, max) {
   return min + Math.random() * (max - min);
 }
 
-// PNG가 알파 없이 체커 패턴(회색 ~203/~207)을 배경으로 가지고 있는 경우 대비
-// — 그 두 회색 톤을 투명으로 만든 뒤, 불투명 bounding box를 찾는다.
+// PNG가 알파 없이 체커 미리보기(흰색 + 회색)를 픽셀로 그대로 가지고 있는 경우 대비.
+// 가장자리부터 flood fill로 연결된 배경 영역만 투명화 — 고양이 흰 배·발은 보호됨.
 function stripCheckerAndCrop(img) {
   const w = img.naturalWidth;
   const h = img.naturalHeight;
@@ -41,17 +41,50 @@ function stripCheckerAndCrop(img) {
   const imageData = ctx.getImageData(0, 0, w, h);
   const data = imageData.data;
 
-  // 체커 픽셀 후보: R=G=B (그레이스케일), 195~225 범위
-  for (let i = 0; i < data.length; i += 4) {
+  // 배경 픽셀 판정: 그레이스케일(R=G=B 근사) + 밝기 195~255
+  const isBgPixel = (i) => {
     const r = data[i], g = data[i + 1], b = data[i + 2];
-    const isGray = Math.abs(r - g) < 4 && Math.abs(g - b) < 4;
-    if (isGray && r >= 195 && r <= 225) {
-      data[i + 3] = 0;
-    }
+    if (Math.abs(r - g) > 14 || Math.abs(g - b) > 14) return false;
+    const lum = (r + g + b) / 3;
+    return lum >= 195;
+  };
+
+  const visited = new Uint8Array(w * h);
+  const stack = [];
+
+  // 4개 모서리 + 가장자리 line들을 seed로 (배경은 가장자리에서 시작)
+  const seed = (x, y) => {
+    const p = y * w + x;
+    if (!visited[p]) stack.push(p);
+  };
+  for (let x = 0; x < w; x++) {
+    seed(x, 0);
+    seed(x, h - 1);
   }
+  for (let y = 0; y < h; y++) {
+    seed(0, y);
+    seed(w - 1, y);
+  }
+
+  // DFS flood fill
+  while (stack.length > 0) {
+    const p = stack.pop();
+    if (visited[p]) continue;
+    visited[p] = 1;
+    const di = p * 4;
+    if (!isBgPixel(di)) continue;
+    data[di + 3] = 0;
+    const x = p % w;
+    const y = (p - x) / w;
+    if (x > 0) stack.push(p - 1);
+    if (x < w - 1) stack.push(p + 1);
+    if (y > 0) stack.push(p - w);
+    if (y < h - 1) stack.push(p + w);
+  }
+
   ctx.putImageData(imageData, 0, 0);
 
-  // bounding box
+  // bounding box (불투명만)
   let minX = w, minY = h, maxX = 0, maxY = 0;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
