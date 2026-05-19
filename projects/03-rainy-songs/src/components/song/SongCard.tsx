@@ -8,7 +8,7 @@ type SongCardProps = {
   onClose: () => void;
 };
 
-const VISIBLE_MS = 2000;
+const VISIBLE_MS = 1000;
 
 export function SongCard({ song, onClose }: SongCardProps) {
   const [entered, setEntered] = useState(false);
@@ -17,7 +17,7 @@ export function SongCard({ song, onClose }: SongCardProps) {
   useEffect(() => {
     const enterId = requestAnimationFrame(() => setEntered(true));
     const leaveTimer = setTimeout(() => setLeaving(true), VISIBLE_MS);
-    const closeTimer = setTimeout(onClose, VISIBLE_MS + 400);
+    const closeTimer = setTimeout(onClose, VISIBLE_MS + 350);
     return () => {
       cancelAnimationFrame(enterId);
       clearTimeout(leaveTimer);
@@ -36,65 +36,113 @@ export function SongCard({ song, onClose }: SongCardProps) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: visible ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0)",
-        transition: "background 0.4s ease",
         pointerEvents: "none",
+        background: visible ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0)",
+        transition: "background 0.35s ease",
       }}
     >
       <div
         style={{
           position: "relative",
-          width: "min(360px, 80vw)",
-          padding: "36px 28px",
-          background: "#f5f1e6",
-          color: "#1a1a18",
-          fontFamily: "var(--font-display)",
-          textAlign: "center",
-          boxShadow:
-            "0 24px 50px rgba(0,0,0,0.55), 0 6px 14px rgba(0,0,0,0.35)",
+          width: "min(340px, 78vw)",
+          height: 200,
           transform: visible
-            ? "rotate(-1deg) scale(1)"
+            ? "rotate(-2deg) scale(1)"
             : leaving
-              ? "rotate(-1deg) scale(0.98) translateY(-6px)"
-              : "rotate(-1deg) scale(0.94)",
+              ? "rotate(-2deg) scale(0.98) translateY(-6px)"
+              : "rotate(-2deg) scale(0.9)",
           opacity: visible ? 1 : 0,
           filter: visible ? "blur(0)" : "blur(3px)",
           transition:
-            "transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease, filter 0.4s ease",
+            "transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease, filter 0.35s ease",
         }}
       >
-        {/* 종이 결 (아주 옅게) */}
-        <div
-          aria-hidden
+        {/* 손그림 종이 — 우글우글한 테두리 */}
+        <svg
+          viewBox="0 0 340 200"
+          preserveAspectRatio="none"
           style={{
             position: "absolute",
             inset: 0,
-            pointerEvents: "none",
-            background:
-              "repeating-linear-gradient(132deg, rgba(0,0,0,0.018) 0 1px, transparent 1px 32px)",
+            width: "100%",
+            height: "100%",
+            filter: "drop-shadow(0 18px 30px rgba(0,0,0,0.55)) drop-shadow(0 4px 8px rgba(0,0,0,0.3))",
           }}
-        />
+        >
+          <path
+            d="
+              M 18,22
+              C 80,12 160,16 235,14
+              C 295,12 320,22 326,40
+              C 332,90 330,140 322,168
+              C 318,184 300,188 270,184
+              C 200,180 110,186 50,182
+              C 20,180 10,166 14,140
+              C 10,100 12,52 18,22
+              Z
+            "
+            fill="#f5f1e6"
+            stroke="#1a1a18"
+            strokeWidth="2.2"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+          {/* 두 번째 살짝 어긋난 라인 — 손그림 중첩 느낌 */}
+          <path
+            d="
+              M 22,26
+              C 85,18 162,20 233,18
+              C 290,18 318,24 322,42
+              C 326,92 326,138 320,164
+              C 314,180 298,184 270,180
+              C 200,176 110,182 52,178
+              C 24,178 14,162 18,138
+              C 16,98 16,54 22,26
+              Z
+            "
+            fill="none"
+            stroke="#1a1a18"
+            strokeWidth="0.6"
+            strokeLinejoin="round"
+            opacity="0.4"
+          />
+        </svg>
 
+        {/* 내용 */}
         <div
           style={{
-            fontWeight: 700,
-            fontSize: 14,
-            letterSpacing: 2,
-            opacity: 0.55,
-            marginBottom: 14,
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "28px 24px",
+            color: "#1a1a18",
+            textAlign: "center",
+            fontFamily: "var(--font-doodle)",
           }}
         >
-          {song.artist}
-        </div>
-        <div
-          style={{
-            fontWeight: 900,
-            fontSize: "clamp(22px, 4.8vw, 30px)",
-            letterSpacing: 1,
-            lineHeight: 1.3,
-          }}
-        >
-          {song.title}
+          <div
+            style={{
+              fontSize: 18,
+              opacity: 0.7,
+              marginBottom: 10,
+              letterSpacing: 0.5,
+              transform: "rotate(-0.5deg)",
+            }}
+          >
+            {song.artist}
+          </div>
+          <div
+            style={{
+              fontSize: "clamp(28px, 6vw, 38px)",
+              lineHeight: 1.15,
+              transform: "rotate(0.4deg)",
+            }}
+          >
+            {song.title}
+          </div>
         </div>
       </div>
     </div>
