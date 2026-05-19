@@ -22,6 +22,7 @@ export function RainyScene() {
   const pickNextSong = useCallback((): Song => {
     if (deckRef.current.length === 0) {
       deckRef.current = shuffledDeck();
+      // 새 사이클 첫 곡이 직전 사이클 마지막 곡과 같으면 한 칸 뒤로 밀어 회피
       if (
         deckRef.current[0] &&
         lastSongRef.current &&
