@@ -28,8 +28,9 @@ function rand(min, max) {
   return min + Math.random() * (max - min);
 }
 
-// 이미지에서 불투명 영역만 잘라낸 새 캔버스를 반환
-function cropToContent(img) {
+// PNG가 알파 없이 체커 패턴(회색 ~203/~207)을 배경으로 가지고 있는 경우 대비
+// — 그 두 회색 톤을 투명으로 만든 뒤, 불투명 bounding box를 찾는다.
+function stripCheckerAndCrop(img) {
   const w = img.naturalWidth;
   const h = img.naturalHeight;
   const c = document.createElement("canvas");
@@ -37,7 +38,20 @@ function cropToContent(img) {
   c.height = h;
   const ctx = c.getContext("2d");
   ctx.drawImage(img, 0, 0);
-  const data = ctx.getImageData(0, 0, w, h).data;
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const data = imageData.data;
+
+  // 체커 픽셀 후보: R=G=B (그레이스케일), 195~225 범위
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const isGray = Math.abs(r - g) < 4 && Math.abs(g - b) < 4;
+    if (isGray && r >= 195 && r <= 225) {
+      data[i + 3] = 0;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  // bounding box
   let minX = w, minY = h, maxX = 0, maxY = 0;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -72,9 +86,9 @@ async function loadAndAlign() {
     loadImage("assets/cat-idle-blink.png"),
   ]);
 
-  const a = cropToContent(walkImg);
-  const b = cropToContent(idleImg);
-  const c = cropToContent(blinkImg);
+  const a = stripCheckerAndCrop(walkImg);
+  const b = stripCheckerAndCrop(idleImg);
+  const c = stripCheckerAndCrop(blinkImg);
 
   const maxW = Math.max(a.bbox.w, b.bbox.w, c.bbox.w);
   const maxH = Math.max(a.bbox.h, b.bbox.h, c.bbox.h);
