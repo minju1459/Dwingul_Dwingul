@@ -1,39 +1,122 @@
 const cat = document.getElementById("cat");
 
-// 스프라이트 시트 레이아웃: 4열 × 2행 = 8 프레임 (3종 모두 동일)
-const FRAME_COLS = 4;
-const FRAME_ROWS = 2;
-const TOTAL_FRAMES = FRAME_COLS * FRAME_ROWS;
-
-const WALK_FRAME_MS = 130;
-const IDLE_FRAME_MS = 360;
-const WALK_SPEED = 1.0; // px per tick
-
+const TARGET_HEIGHT = 100; // 화면에서 고양이 키 (px)
+const WALK_SPEED = 0.9;
+const IDLE_DURATION_MS = 3000;
 const BLINK_DURATION_MS = 160;
 const WALK_BLINK_INTERVAL = [2500, 5500];
 const IDLE_BLINK_INTERVAL = [1500, 3500];
 
-// 화면 하단 Dock 위 정도의 Y 좌표 (정확한 Dock 좌표는 시스템마다 달라서 추정값)
-const CAT_SIZE = 96;
-const DOCK_AVOID = 92;
-let groundY = window.innerHeight - DOCK_AVOID - CAT_SIZE * 0.3;
+// === Dock 위치 — main.js에서 query로 전달 ===
+const urlParams = new URLSearchParams(window.location.search);
+const dockTop = parseFloat(urlParams.get("dockTop") || "0") || 0;
 
 let x = window.innerWidth * 0.5;
-cat.style.top = groundY + "px";
-cat.style.left = x + "px";
-
-let mode = "walk"; // "walk" | "idle"
 let direction = Math.random() < 0.5 ? -1 : 1;
-let frame = 0;
-let lastFrameAt = 0;
+let mode = "walk";
 let nextDecisionAt = performance.now() + rand(4000, 9000);
 let idleUntil = 0;
 let nextBlinkAt = performance.now() + rand(...WALK_BLINK_INTERVAL);
 let blinkClearAt = 0;
 let blinking = false;
 
+const sprites = { walk: null, idle: null, blink: null };
+let catDisplayW = TARGET_HEIGHT;
+let catDisplayH = TARGET_HEIGHT;
+
 function rand(min, max) {
   return min + Math.random() * (max - min);
+}
+
+// 이미지에서 불투명 영역만 잘라낸 새 캔버스를 반환
+function cropToContent(img) {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  const data = ctx.getImageData(0, 0, w, h).data;
+  let minX = w, minY = h, maxX = 0, maxY = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (data[i + 3] > 30) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  const cw = Math.max(1, maxX - minX + 1);
+  const ch = Math.max(1, maxY - minY + 1);
+  return { canvas: c, bbox: { x: minX, y: minY, w: cw, h: ch } };
+}
+
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+// 3장의 cat 이미지를 다 잘라서, 셋 중 가장 큰 bbox 크기에 맞춰 공통 캔버스로 정렬 (바닥 기준)
+async function loadAndAlign() {
+  const [walkImg, idleImg, blinkImg] = await Promise.all([
+    loadImage("assets/cat-walk.png"),
+    loadImage("assets/cat-idle.png"),
+    loadImage("assets/cat-idle-blink.png"),
+  ]);
+
+  const a = cropToContent(walkImg);
+  const b = cropToContent(idleImg);
+  const c = cropToContent(blinkImg);
+
+  const maxW = Math.max(a.bbox.w, b.bbox.w, c.bbox.w);
+  const maxH = Math.max(a.bbox.h, b.bbox.h, c.bbox.h);
+
+  function repack(src) {
+    const out = document.createElement("canvas");
+    out.width = maxW;
+    out.height = maxH;
+    const octx = out.getContext("2d");
+    // 가로 가운데, 세로 바닥 정렬
+    const drawX = (maxW - src.bbox.w) / 2;
+    const drawY = maxH - src.bbox.h;
+    octx.drawImage(
+      src.canvas,
+      src.bbox.x, src.bbox.y, src.bbox.w, src.bbox.h,
+      drawX, drawY, src.bbox.w, src.bbox.h
+    );
+    return out.toDataURL();
+  }
+
+  sprites.walk = repack(a);
+  sprites.idle = repack(b);
+  sprites.blink = repack(c);
+
+  // 화면 표시 크기 계산 (TARGET_HEIGHT 기준 비율 유지)
+  const ratio = maxW / maxH;
+  catDisplayH = TARGET_HEIGHT;
+  catDisplayW = Math.round(TARGET_HEIGHT * ratio);
+
+  cat.style.width = catDisplayW + "px";
+  cat.style.height = catDisplayH + "px";
+
+  // Dock 위에 정확히 — 고양이 바닥이 Dock 윗선과 일치
+  const groundY = dockTop - catDisplayH;
+  cat.style.top = groundY + "px";
+
+  setSpriteBg("walk");
+  cat.style.left = x + "px";
+}
+
+function setSpriteBg(key) {
+  if (sprites[key]) cat.style.backgroundImage = `url(${sprites[key]})`;
 }
 
 function updateFacing() {
@@ -43,38 +126,23 @@ function updateFacing() {
 function applyMode(next) {
   if (mode === next) return;
   mode = next;
-  cat.classList.toggle("walk", mode === "walk");
-  cat.classList.toggle("idle", mode === "idle");
-  frame = 0;
-  setFrame(0);
+  setSpriteBg(mode === "idle" ? "idle" : "walk");
   nextBlinkAt =
     performance.now() +
-    rand(
-      ...(mode === "idle" ? IDLE_BLINK_INTERVAL : WALK_BLINK_INTERVAL)
-    );
-}
-
-function setFrame(idx) {
-  const col = idx % FRAME_COLS;
-  const row = Math.floor(idx / FRAME_COLS);
-  const xPct = (col / (FRAME_COLS - 1)) * 100;
-  const yPct = (row / (FRAME_ROWS - 1)) * 100;
-  cat.style.backgroundPosition = `${xPct}% ${yPct}%`;
+    rand(...(mode === "idle" ? IDLE_BLINK_INTERVAL : WALK_BLINK_INTERVAL));
 }
 
 function triggerBlink(now) {
-  cat.classList.add("blink");
+  setSpriteBg("blink");
   blinking = true;
   blinkClearAt = now + BLINK_DURATION_MS;
   nextBlinkAt =
     now +
-    rand(
-      ...(mode === "idle" ? IDLE_BLINK_INTERVAL : WALK_BLINK_INTERVAL)
-    );
+    rand(...(mode === "idle" ? IDLE_BLINK_INTERVAL : WALK_BLINK_INTERVAL));
 }
 
 function clearBlink() {
-  cat.classList.remove("blink");
+  setSpriteBg(mode === "idle" ? "idle" : "walk");
   blinking = false;
 }
 
@@ -86,44 +154,31 @@ function tick(now) {
       x = 10;
       direction = 1;
       updateFacing();
-    } else if (x > window.innerWidth - CAT_SIZE - 10) {
-      x = window.innerWidth - CAT_SIZE - 10;
+    } else if (x > window.innerWidth - catDisplayW - 10) {
+      x = window.innerWidth - catDisplayW - 10;
       direction = -1;
       updateFacing();
     }
     cat.style.left = x + "px";
 
-    if (now - lastFrameAt > WALK_FRAME_MS) {
-      frame = (frame + 1) % TOTAL_FRAMES;
-      setFrame(frame);
-      lastFrameAt = now;
-    }
-
     if (now > nextDecisionAt) {
       const r = Math.random();
       if (r < 0.4) {
         applyMode("idle");
-        idleUntil = now + rand(3000, 7000);
-      } else if (r < 0.7) {
+        idleUntil = now + IDLE_DURATION_MS;
+      } else if (r < 0.65) {
         direction *= -1;
         updateFacing();
       }
-      nextDecisionAt = now + rand(4000, 9000);
+      nextDecisionAt = now + rand(5000, 10000);
     }
   } else if (mode === "idle") {
-    if (now - lastFrameAt > IDLE_FRAME_MS) {
-      frame = (frame + 1) % TOTAL_FRAMES;
-      setFrame(frame);
-      lastFrameAt = now;
-    }
-
     if (now > idleUntil) {
       applyMode("walk");
-      nextDecisionAt = now + rand(4000, 9000);
+      nextDecisionAt = now + rand(5000, 10000);
     }
   }
 
-  // 깜빡임 — 모드 무관하게 처리
   if (!blinking && now > nextBlinkAt) {
     triggerBlink(now);
   } else if (blinking && now > blinkClearAt) {
@@ -133,15 +188,7 @@ function tick(now) {
   requestAnimationFrame(tick);
 }
 
-window.addEventListener("resize", () => {
-  groundY = window.innerHeight - DOCK_AVOID - CAT_SIZE * 0.3;
-  cat.style.top = groundY + "px";
-  if (x > window.innerWidth - CAT_SIZE - 10) {
-    x = window.innerWidth - CAT_SIZE - 10;
-    cat.style.left = x + "px";
-  }
-});
-
 updateFacing();
-applyMode("walk");
-requestAnimationFrame(tick);
+loadAndAlign().then(() => {
+  requestAnimationFrame(tick);
+});

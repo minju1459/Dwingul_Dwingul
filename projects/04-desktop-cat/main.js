@@ -1,10 +1,22 @@
 const { app, BrowserWindow, screen } = require("electron");
+const path = require("path");
 
 let win;
+
+function computeDockArea(display) {
+  const b = display.bounds;
+  const w = display.workArea;
+  // 화면 좌표 → 윈도우 로컬 좌표 (윈도우가 bounds 전체를 덮으므로 - b.x, b.y)
+  const dockTop = w.y + w.height - b.y;
+  const dockBottom = b.height;
+  const dockHeight = dockBottom - dockTop;
+  return { dockTop, dockHeight };
+}
 
 function createWindow() {
   const primary = screen.getPrimaryDisplay();
   const { width, height } = primary.bounds;
+  const { dockTop, dockHeight } = computeDockArea(primary);
 
   win = new BrowserWindow({
     width,
@@ -16,7 +28,6 @@ function createWindow() {
     hasShadow: false,
     resizable: false,
     movable: false,
-    focusable: false,
     skipTaskbar: false,
     backgroundColor: "#00000000",
     webPreferences: {
@@ -24,14 +35,16 @@ function createWindow() {
     },
   });
 
-  // 클릭이 아래 앱으로 통과되도록 (고양이가 작업 방해 X)
   win.setIgnoreMouseEvents(true);
-
-  // 다른 앱·전체화면 위에도 떠 있도록
   win.setAlwaysOnTop(true, "screen-saver");
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
-  win.loadFile("index.html");
+  win.loadFile(path.join(__dirname, "index.html"), {
+    query: {
+      dockTop: String(dockTop),
+      dockHeight: String(dockHeight),
+    },
+  });
 }
 
 app.whenReady().then(createWindow);
