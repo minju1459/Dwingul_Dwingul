@@ -44,8 +44,8 @@ export function SongCard({ song, onClose }: SongCardProps) {
       <div
         style={{
           position: "relative",
-          width: "min(340px, 78vw)",
-          height: 200,
+          width: "min(260px, 68vw)",
+          height: 150,
           transform: visible
             ? "rotate(-2deg) scale(1)"
             : leaving
@@ -117,7 +117,7 @@ export function SongCard({ song, onClose }: SongCardProps) {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            padding: "28px 24px",
+            padding: "22px 18px",
             color: "#1a1a18",
             textAlign: "center",
             fontFamily: "var(--font-display)",
@@ -125,10 +125,10 @@ export function SongCard({ song, onClose }: SongCardProps) {
         >
           <div
             style={{
-              fontSize: 20,
+              fontSize: 14,
               fontWeight: 700,
-              opacity: 0.7,
-              marginBottom: 8,
+              opacity: 0.65,
+              marginBottom: 6,
               letterSpacing: 0.5,
             }}
           >
@@ -136,9 +136,9 @@ export function SongCard({ song, onClose }: SongCardProps) {
           </div>
           <div
             style={{
-              fontSize: "clamp(28px, 6vw, 38px)",
+              fontSize: "clamp(18px, 4.2vw, 24px)",
               fontWeight: 700,
-              lineHeight: 1.15,
+              lineHeight: 1.2,
             }}
           >
             {song.title}
