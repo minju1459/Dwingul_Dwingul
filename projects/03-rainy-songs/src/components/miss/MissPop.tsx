@@ -24,7 +24,7 @@ export function MissPop({ miss }: MissPopProps) {
         fontWeight: 900,
         fontSize: 30,
         letterSpacing: 2,
-        color: "var(--miss)",
+        color: "var(--ink)",
         textShadow:
           "0 0 10px rgba(0,0,0,0.85), 0 2px 4px rgba(0,0,0,0.7)",
         animation: "miss-pop 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards",

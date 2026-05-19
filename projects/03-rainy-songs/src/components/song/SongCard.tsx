@@ -125,11 +125,11 @@ export function SongCard({ song, onClose }: SongCardProps) {
         >
           <div
             style={{
-              fontSize: 18,
+              fontSize: 20,
+              fontWeight: 700,
               opacity: 0.7,
-              marginBottom: 10,
+              marginBottom: 8,
               letterSpacing: 0.5,
-              transform: "rotate(-0.5deg)",
             }}
           >
             {song.artist}
@@ -137,8 +137,8 @@ export function SongCard({ song, onClose }: SongCardProps) {
           <div
             style={{
               fontSize: "clamp(28px, 6vw, 38px)",
+              fontWeight: 700,
               lineHeight: 1.15,
-              transform: "rotate(0.4deg)",
             }}
           >
             {song.title}

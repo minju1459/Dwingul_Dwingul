@@ -1,5 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Gugi&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Single+Day&display=swap");
 @import "tailwindcss";
 
@@ -15,7 +15,7 @@
     "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
     "Malgun Gothic", sans-serif;
   --font-doodle:
-    "Gugi", "Single Day", "Apple SD Gothic Neo", "Malgun Gothic", cursive;
+    "Gaegu", "Single Day", "Apple SD Gothic Neo", "Malgun Gothic", cursive;
 }
 
 html,
