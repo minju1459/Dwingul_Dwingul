@@ -16,14 +16,29 @@ body {
 
 #cat {
   position: absolute;
-  /* 가로/세로 크기는 JS에서 자동 계산해서 설정 (스프라이트 크롭 후 비율 유지) */
   background-repeat: no-repeat;
   background-size: contain;
   background-position: center bottom;
   pointer-events: none;
-  will-change: left, transform;
+  will-change: left, translate;
+  transform-origin: center bottom;
+  /* scale 과 translate 분리 — 방향 반전(scale)과 걷는 모션(translate/rotate)이 충돌 안 함 */
+  scale: 1 1;
 }
 
 #cat.facing-left {
-  transform: scaleX(-1);
+  scale: -1 1;
+}
+
+/* 걷는 중 — 통통 튀면서 살짝 기우뚱하며 좌우로 몸 흔듦 */
+#cat.walking {
+  animation: cat-walking 0.42s ease-in-out infinite;
+}
+
+@keyframes cat-walking {
+  0%   { translate: 0 0;    rotate: -1.2deg; }
+  25%  { translate: 0 -2px; rotate:  0deg;   }
+  50%  { translate: 0 0;    rotate:  1.2deg; }
+  75%  { translate: 0 -2px; rotate:  0deg;   }
+  100% { translate: 0 0;    rotate: -1.2deg; }
 }

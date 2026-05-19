@@ -161,6 +161,7 @@ async function loadAndAlign() {
   cat.style.top = groundY + "px";
 
   setSpriteBg("walk");
+  cat.classList.add("walking");
   cat.style.left = x + "px";
 }
 
@@ -176,6 +177,8 @@ function applyMode(next) {
   if (mode === next) return;
   mode = next;
   setSpriteBg(mode === "idle" ? "idle" : "walk");
+  // 걷는 중일 때만 통통 흔들림 애니메이션
+  cat.classList.toggle("walking", mode === "walk");
   nextBlinkAt =
     performance.now() +
     rand(...(mode === "idle" ? IDLE_BLINK_INTERVAL : WALK_BLINK_INTERVAL));
