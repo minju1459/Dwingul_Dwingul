@@ -154,8 +154,10 @@ async function loadAndAlign() {
   cat.style.width = catDisplayW + "px";
   cat.style.height = catDisplayH + "px";
 
-  // Dock 위에 정확히 — 고양이 바닥이 Dock 윗선과 일치
-  const groundY = dockTop - catDisplayH;
+  // 고양이가 Dock 윗선 위에 발 딛고 서 있게 — bbox 바닥에 살짝 그림자/패딩이 있을 수
+  // 있어서 -20 만큼 올림. 더 올리고 싶으면 GROUND_LIFT 키우면 됨.
+  const GROUND_LIFT = 20;
+  const groundY = dockTop - catDisplayH - GROUND_LIFT;
   cat.style.top = groundY + "px";
 
   setSpriteBg("walk");
