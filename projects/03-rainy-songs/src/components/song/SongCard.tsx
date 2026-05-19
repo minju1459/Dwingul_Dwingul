@@ -8,7 +8,7 @@ type SongCardProps = {
   onClose: () => void;
 };
 
-const VISIBLE_MS = 1000;
+const VISIBLE_MS = 500;
 
 export function SongCard({ song, onClose }: SongCardProps) {
   const [entered, setEntered] = useState(false);
