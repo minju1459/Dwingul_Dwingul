@@ -120,7 +120,7 @@ export function SongCard({ song, onClose }: SongCardProps) {
             padding: "28px 24px",
             color: "#1a1a18",
             textAlign: "center",
-            fontFamily: "var(--font-doodle)",
+            fontFamily: "var(--font-display)",
           }}
         >
           <div
