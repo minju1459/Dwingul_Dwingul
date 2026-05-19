@@ -3,14 +3,17 @@
 import { useCallback, useRef, useState } from "react";
 import { RainCanvas } from "./RainCanvas";
 import { SongCard } from "@/components/song/SongCard";
+import { MissPop, type MissEvent } from "@/components/miss/MissPop";
 import { MuteButton } from "@/components/controls/MuteButton";
 import { useRainSound } from "@/hooks/useRainSound";
 import type { Song } from "@/lib/songs";
 import { shuffledDeck } from "@/lib/songs";
 
+const MISS_DURATION_MS = 900;
+
 export function RainyScene() {
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
-  const [revealKey, setRevealKey] = useState(0);
+  const [misses, setMisses] = useState<MissEvent[]>([]);
   const deckRef = useRef<Song[]>(shuffledDeck());
   const lastSongRef = useRef<Song | null>(null);
   const { muted, toggle } = useRainSound();
@@ -18,7 +21,6 @@ export function RainyScene() {
   const pickNextSong = useCallback(() => {
     if (deckRef.current.length === 0) {
       deckRef.current = shuffledDeck();
-      // 직전과 같은 곡이 나오면 한 칸 밀어서 회피
       if (
         deckRef.current[0] &&
         lastSongRef.current &&
@@ -36,16 +38,31 @@ export function RainyScene() {
     return next;
   }, []);
 
-  const handleClick = useCallback(() => {
+  const handleHit = useCallback(() => {
     const song = pickNextSong();
     setCurrentSong(song);
-    setRevealKey((k) => k + 1);
   }, [pickNextSong]);
+
+  const handleMiss = useCallback((x: number, y: number) => {
+    const id = Date.now() + Math.random();
+    setMisses((prev) => [...prev, { id, x, y }]);
+    setTimeout(() => {
+      setMisses((prev) => prev.filter((m) => m.id !== id));
+    }, MISS_DURATION_MS);
+  }, []);
 
   return (
     <>
-      <RainCanvas onClickAnywhere={handleClick} />
-      <SongCard song={currentSong} revealKey={revealKey} />
+      <RainCanvas onHit={handleHit} onMiss={handleMiss} />
+
+      {misses.map((m) => (
+        <MissPop key={m.id} miss={m} />
+      ))}
+
+      {currentSong && (
+        <SongCard song={currentSong} onClose={() => setCurrentSong(null)} />
+      )}
+
       <MuteButton muted={muted} onToggle={toggle} />
 
       {currentSong === null && (

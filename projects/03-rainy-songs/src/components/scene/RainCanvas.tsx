@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 
 type RainCanvasProps = {
-  onClickAnywhere: (x: number, y: number) => void;
+  onHit: (x: number, y: number) => void;
+  onMiss: (x: number, y: number) => void;
 };
 
 type Drop = {
@@ -34,6 +35,7 @@ type GrassTuft = {
 const DROP_COUNT = 110;
 const GROUND_RATIO = 0.92;
 const GRAVITY = 0.18;
+const HIT_RADIUS = 26;
 
 function rand(min: number, max: number) {
   return min + Math.random() * (max - min);
@@ -84,10 +86,7 @@ function generateGrass(width: number, count: number, seed: number): GrassTuft[] 
   return tufts;
 }
 
-function drawTeardrop(
-  ctx: CanvasRenderingContext2D,
-  d: Drop
-) {
+function drawTeardrop(ctx: CanvasRenderingContext2D, d: Drop) {
   const motionAngle = Math.atan2(d.vy, d.vx);
   const rotation = motionAngle - Math.PI / 2;
   const w = d.size * 0.42;
@@ -103,7 +102,6 @@ function drawTeardrop(
   ctx.lineCap = "round";
 
   ctx.beginPath();
-  // 위쪽 뾰족한 끝 (0, -h*0.55)에서 시작 → 오른쪽 둥근 배 → 아래쪽 둥근 끝 → 왼쪽 → 다시 위
   ctx.moveTo(0, -h * 0.55);
   ctx.bezierCurveTo(
     w + j[0] * 0.5, -h * 0.18 + j[1] * 0.4,
@@ -116,12 +114,18 @@ function drawTeardrop(
     0, -h * 0.55
   );
   ctx.stroke();
-
   ctx.restore();
 }
 
-export function RainCanvas({ onClickAnywhere }: RainCanvasProps) {
+export function RainCanvas({ onHit, onMiss }: RainCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const onHitRef = useRef(onHit);
+  const onMissRef = useRef(onMiss);
+
+  useEffect(() => {
+    onHitRef.current = onHit;
+    onMissRef.current = onMiss;
+  }, [onHit, onMiss]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -159,8 +163,30 @@ export function RainCanvas({ onClickAnywhere }: RainCanvasProps) {
       const rect = canvas.getBoundingClientRect();
       const cx = e.clientX - rect.left;
       const cy = e.clientY - rect.top;
-      splashes.push(makeSplash(cx, cy, true));
-      onClickAnywhere(cx, cy);
+
+      // 가장 가까운 빗방울 (반경 안에 있을 때만 잡힘)
+      let hitIndex = -1;
+      let minDist = HIT_RADIUS * HIT_RADIUS;
+      for (let i = 0; i < drops.length; i++) {
+        const d = drops[i];
+        const dx = cx - d.x;
+        const dy = cy - d.y;
+        const distSq = dx * dx + dy * dy;
+        if (distSq < minDist) {
+          minDist = distSq;
+          hitIndex = i;
+        }
+      }
+
+      if (hitIndex >= 0) {
+        const hitDrop = drops[hitIndex];
+        splashes.push(makeSplash(hitDrop.x, hitDrop.y, true));
+        Object.assign(hitDrop, makeDrop(width, height, true));
+        onHitRef.current(cx, cy);
+      } else {
+        splashes.push(makeSplash(cx, cy, false));
+        onMissRef.current(cx, cy);
+      }
     };
     canvas.addEventListener("click", handleClick);
 
@@ -202,9 +228,7 @@ export function RainCanvas({ onClickAnywhere }: RainCanvasProps) {
     const drawDrops = () => {
       ctx.save();
       ctx.strokeStyle = "rgba(244, 244, 238, 1)";
-      for (const d of drops) {
-        drawTeardrop(ctx, d);
-      }
+      for (const d of drops) drawTeardrop(ctx, d);
       ctx.restore();
     };
 
@@ -266,7 +290,7 @@ export function RainCanvas({ onClickAnywhere }: RainCanvasProps) {
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("click", handleClick);
     };
-  }, [onClickAnywhere]);
+  }, []);
 
   return (
     <canvas

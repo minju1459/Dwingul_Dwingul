@@ -5,6 +5,10 @@
   --bg: #0a0a0a;
   --ink: #f4f4ee;
   --ink-dim: #b8b8a8;
+  --paper: #f1e8d2;
+  --paper-shadow: #c5b98f;
+  --paper-ink: #2a2a26;
+  --miss: #ff4444;
   --font-display:
     "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
     "Malgun Gothic", sans-serif;
