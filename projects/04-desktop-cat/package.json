@@ -1,0 +1,14 @@
+{
+  "name": "nagomyammi-inde",
+  "productName": "나고먐미인데",
+  "version": "0.1.0",
+  "description": "나고먐미인데 — 데스크탑에 사는 작은 고양이",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^32.2.0"
+  }
+}

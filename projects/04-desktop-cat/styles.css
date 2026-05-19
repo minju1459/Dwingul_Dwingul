@@ -1,0 +1,49 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+}
+
+#cat {
+  position: absolute;
+  width: 96px;
+  height: 96px;
+  background-repeat: no-repeat;
+  background-size: 400% 200%;
+  background-position: 0% 0%;
+  pointer-events: none;
+  will-change: left, transform;
+}
+
+#cat.walk {
+  background-image: url("./assets/cat-walk.png");
+}
+
+/* 걷는 중 눈 깜빡임 — 같은 프레임의 눈감은 스프라이트로 잠깐 교체 */
+#cat.walk.blink {
+  background-image: url("./assets/cat-walk-blink.png");
+}
+
+#cat.idle {
+  background-image: url("./assets/cat-idle.png");
+}
+
+/* 멈춰있을 때 깜빡임 임시 처리 — eyes-closed 정면 스프라이트 추가하면 교체 */
+#cat.idle.blink {
+  opacity: 0.55;
+  transition: opacity 0.08s ease;
+}
+
+#cat.facing-left {
+  transform: scaleX(-1);
+}
