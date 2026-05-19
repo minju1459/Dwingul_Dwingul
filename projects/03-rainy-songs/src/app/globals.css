@@ -1,0 +1,29 @@
+@import url("https://fonts.googleapis.com/css2?family=Gaegu:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap");
+@import "tailwindcss";
+
+:root {
+  --bg: #0a0a0a;
+  --ink: #f4f4ee;
+  --ink-dim: #b8b8a8;
+  --paper: #f4ecd8;
+  --paper-shadow: #c9bf9c;
+  --paper-ink: #2a2a26;
+  --font-hand: "Gaegu", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-pen: "Nanum Pen Script", "Gaegu", sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-hand);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
