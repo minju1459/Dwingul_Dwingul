@@ -13,3 +13,7 @@ export const SONGS: Song[] = [
   { artist: "잔나비", title: "주저하는 연인들을 위해" },
   { artist: "카더가든", title: "명동콜링" },
 ];
+
+export function shuffledDeck(): Song[] {
+  return [...SONGS].sort(() => Math.random() - 0.5);
+}

@@ -11,9 +11,10 @@ type Drop = {
   y: number;
   vx: number;
   vy: number;
-  length: number;
+  size: number;
   thickness: number;
   alpha: number;
+  jitter: number[];
 };
 
 type Splash = {
@@ -30,42 +31,40 @@ type GrassTuft = {
   tilt: number;
 };
 
-const RAIN_ANGLE = -1.32; // 약 75도 (왼쪽으로 살짝 기울어 떨어짐)
-const DROP_COUNT = 220;
+const DROP_COUNT = 110;
 const GROUND_RATIO = 0.92;
+const GRAVITY = 0.18;
 
 function rand(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
 
+function makeJitter(): number[] {
+  return Array.from({ length: 8 }, () => rand(-1.4, 1.4));
+}
+
 function makeDrop(w: number, h: number, freshTop = false): Drop {
-  const speed = rand(9, 16);
-  const length = rand(10, 22);
+  const size = rand(8, 18);
   return {
-    x: rand(-w * 0.2, w * 1.2),
-    y: freshTop ? rand(-h * 0.6, -10) : rand(-h, h * GROUND_RATIO - 4),
-    vx: Math.cos(RAIN_ANGLE) * speed,
-    vy: Math.sin(RAIN_ANGLE) * -speed,
-    length,
-    thickness: rand(0.7, 1.6),
-    alpha: rand(0.45, 0.92),
+    x: rand(-w * 0.1, w * 1.1),
+    y: freshTop ? rand(-h * 0.5, -20) : rand(-h * 0.5, h * GROUND_RATIO - 10),
+    vx: rand(-1.8, -0.6),
+    vy: rand(5, 9),
+    size,
+    thickness: rand(1.0, 1.6),
+    alpha: rand(0.55, 0.95),
+    jitter: makeJitter(),
   };
 }
 
 function makeSplash(x: number, y: number, big = false): Splash {
-  const count = big ? 14 : 5;
+  const count = big ? 16 : 6;
   const particles = Array.from({ length: count }, () => ({
     angle: rand(-Math.PI * 0.85, -Math.PI * 0.15),
-    speed: rand(big ? 2.2 : 1.4, big ? 4.5 : 2.8),
+    speed: rand(big ? 2.2 : 1.4, big ? 4.8 : 2.8),
     length: rand(big ? 6 : 3, big ? 14 : 7),
   }));
-  return {
-    x,
-    y,
-    age: 0,
-    life: big ? 32 : 22,
-    particles,
-  };
+  return { x, y, age: 0, life: big ? 32 : 22, particles };
 }
 
 function generateGrass(width: number, count: number, seed: number): GrassTuft[] {
@@ -83,6 +82,42 @@ function generateGrass(width: number, count: number, seed: number): GrassTuft[] 
     });
   }
   return tufts;
+}
+
+function drawTeardrop(
+  ctx: CanvasRenderingContext2D,
+  d: Drop
+) {
+  const motionAngle = Math.atan2(d.vy, d.vx);
+  const rotation = motionAngle - Math.PI / 2;
+  const w = d.size * 0.42;
+  const h = d.size;
+  const j = d.jitter;
+
+  ctx.save();
+  ctx.translate(d.x, d.y);
+  ctx.rotate(rotation);
+  ctx.globalAlpha = d.alpha;
+  ctx.lineWidth = d.thickness;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  ctx.beginPath();
+  // 위쪽 뾰족한 끝 (0, -h*0.55)에서 시작 → 오른쪽 둥근 배 → 아래쪽 둥근 끝 → 왼쪽 → 다시 위
+  ctx.moveTo(0, -h * 0.55);
+  ctx.bezierCurveTo(
+    w + j[0] * 0.5, -h * 0.18 + j[1] * 0.4,
+    w + j[2] * 0.5, h * 0.28 + j[3] * 0.4,
+    0 + j[4] * 0.3, h * 0.45 + j[5] * 0.3
+  );
+  ctx.bezierCurveTo(
+    -w + j[6] * 0.5, h * 0.28 + j[7] * 0.4,
+    -w + j[0] * 0.5, -h * 0.18 + j[1] * 0.4,
+    0, -h * 0.55
+  );
+  ctx.stroke();
+
+  ctx.restore();
 }
 
 export function RainCanvas({ onClickAnywhere }: RainCanvasProps) {
@@ -136,20 +171,15 @@ export function RainCanvas({ onClickAnywhere }: RainCanvasProps) {
       ctx.strokeStyle = "rgba(244, 244, 238, 0.85)";
       ctx.lineWidth = 1.4;
       ctx.lineCap = "round";
-
-      // 손그림 라인 (살짝 출렁이는 잉크 라인)
       ctx.beginPath();
-      let prevY = groundY;
       for (let x = -10; x <= width + 10; x += 6) {
         const wobble = Math.sin(x * 0.08) * 0.6 + Math.sin(x * 0.31) * 0.4;
         const y = groundY + wobble;
         if (x === -10) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
-        prevY = y;
       }
       ctx.stroke();
 
-      // 잔디
       ctx.lineWidth = 1.1;
       grass.forEach((t) => {
         const baseY = groundY;
@@ -171,21 +201,9 @@ export function RainCanvas({ onClickAnywhere }: RainCanvasProps) {
 
     const drawDrops = () => {
       ctx.save();
-      ctx.strokeStyle = "rgba(244, 244, 238, 0.85)";
-      ctx.lineCap = "round";
-
+      ctx.strokeStyle = "rgba(244, 244, 238, 1)";
       for (const d of drops) {
-        ctx.globalAlpha = d.alpha;
-        ctx.lineWidth = d.thickness;
-        ctx.beginPath();
-        // 살짝 휘어진 잉크 빗방울 (2단계 베지어 같은 약한 곡선)
-        const x2 = d.x - d.vx * (d.length / 14);
-        const y2 = d.y - d.vy * (d.length / 14);
-        const midX = (d.x + x2) / 2 + (d.thickness - 1) * 0.5;
-        const midY = (d.y + y2) / 2;
-        ctx.moveTo(d.x, d.y);
-        ctx.quadraticCurveTo(midX, midY, x2, y2);
-        ctx.stroke();
+        drawTeardrop(ctx, d);
       }
       ctx.restore();
     };
@@ -201,7 +219,7 @@ export function RainCanvas({ onClickAnywhere }: RainCanvasProps) {
         for (const p of s.particles) {
           const dist = p.speed * s.age * (1 - t * 0.4);
           const px = s.x + Math.cos(p.angle) * dist;
-          const py = s.y + Math.sin(p.angle) * dist + s.age * 0.3 * s.age * 0.05;
+          const py = s.y + Math.sin(p.angle) * dist + s.age * 0.1;
           const px2 = px - Math.cos(p.angle) * p.length;
           const py2 = py - Math.sin(p.angle) * p.length;
           ctx.beginPath();
@@ -214,27 +232,24 @@ export function RainCanvas({ onClickAnywhere }: RainCanvasProps) {
     };
 
     const tick = () => {
-      // 잔상 효과를 위한 살짝 투명한 배경
-      ctx.fillStyle = "rgba(10, 10, 10, 0.32)";
-      ctx.fillRect(0, 0, width, height);
+      ctx.clearRect(0, 0, width, height);
 
       for (const d of drops) {
+        d.vy += GRAVITY * 0.05;
         d.x += d.vx;
         d.y += d.vy;
 
         if (d.y > groundY) {
           splashes.push(makeSplash(d.x, groundY - 1, false));
           Object.assign(d, makeDrop(width, height, true));
-        } else if (d.x < -50 || d.x > width + 50) {
+        } else if (d.x < -60 || d.x > width + 60) {
           Object.assign(d, makeDrop(width, height, true));
         }
       }
 
       for (let i = splashes.length - 1; i >= 0; i--) {
         splashes[i].age += 1;
-        if (splashes[i].age > splashes[i].life) {
-          splashes.splice(i, 1);
-        }
+        if (splashes[i].age > splashes[i].life) splashes.splice(i, 1);
       }
 
       drawGround();
