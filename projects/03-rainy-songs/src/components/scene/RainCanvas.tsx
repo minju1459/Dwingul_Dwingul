@@ -50,8 +50,8 @@ function makeDrop(w: number, h: number, freshTop = false): Drop {
   return {
     x: rand(-w * 0.1, w * 1.1),
     y: freshTop ? rand(-h * 0.5, -20) : rand(-h * 0.5, h * GROUND_RATIO - 10),
-    vx: rand(-1.8, -0.6),
-    vy: rand(5, 9),
+    vx: rand(-1.2, -0.4),
+    vy: rand(3, 5.5),
     size,
     thickness: rand(1.0, 1.6),
     alpha: rand(0.55, 0.95),

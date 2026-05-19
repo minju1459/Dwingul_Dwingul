@@ -19,8 +19,21 @@ export function RainyScene() {
   const lastSongRef = useRef<Song | null>(null);
   const { muted, toggle } = useRainSound();
 
-  const pickNextSong = useCallback((): Song | null => {
-    if (deckRef.current.length === 0) return null;
+  const pickNextSong = useCallback((): Song => {
+    if (deckRef.current.length === 0) {
+      deckRef.current = shuffledDeck();
+      if (
+        deckRef.current[0] &&
+        lastSongRef.current &&
+        deckRef.current[0].artist === lastSongRef.current.artist &&
+        deckRef.current[0].title === lastSongRef.current.title &&
+        deckRef.current.length > 1
+      ) {
+        const swap = deckRef.current[0];
+        deckRef.current[0] = deckRef.current[1];
+        deckRef.current[1] = swap;
+      }
+    }
     const next = deckRef.current.shift()!;
     lastSongRef.current = next;
     return next;
@@ -28,7 +41,6 @@ export function RainyScene() {
 
   const handleHit = useCallback(() => {
     const song = pickNextSong();
-    if (!song) return;
     setCurrentSong(song);
     setRevealKey((k) => k + 1);
   }, [pickNextSong]);
