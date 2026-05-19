@@ -13,26 +13,14 @@ const MISS_DURATION_MS = 900;
 
 export function RainyScene() {
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
+  const [revealKey, setRevealKey] = useState(0);
   const [misses, setMisses] = useState<MissEvent[]>([]);
   const deckRef = useRef<Song[]>(shuffledDeck());
   const lastSongRef = useRef<Song | null>(null);
   const { muted, toggle } = useRainSound();
 
-  const pickNextSong = useCallback(() => {
-    if (deckRef.current.length === 0) {
-      deckRef.current = shuffledDeck();
-      if (
-        deckRef.current[0] &&
-        lastSongRef.current &&
-        deckRef.current[0].artist === lastSongRef.current.artist &&
-        deckRef.current[0].title === lastSongRef.current.title &&
-        deckRef.current.length > 1
-      ) {
-        const swap = deckRef.current[0];
-        deckRef.current[0] = deckRef.current[1];
-        deckRef.current[1] = swap;
-      }
-    }
+  const pickNextSong = useCallback((): Song | null => {
+    if (deckRef.current.length === 0) return null;
     const next = deckRef.current.shift()!;
     lastSongRef.current = next;
     return next;
@@ -40,7 +28,9 @@ export function RainyScene() {
 
   const handleHit = useCallback(() => {
     const song = pickNextSong();
+    if (!song) return;
     setCurrentSong(song);
+    setRevealKey((k) => k + 1);
   }, [pickNextSong]);
 
   const handleMiss = useCallback((x: number, y: number) => {
@@ -60,7 +50,11 @@ export function RainyScene() {
       ))}
 
       {currentSong && (
-        <SongCard song={currentSong} onClose={() => setCurrentSong(null)} />
+        <SongCard
+          key={revealKey}
+          song={currentSong}
+          onClose={() => setCurrentSong(null)}
+        />
       )}
 
       <MuteButton muted={muted} onToggle={toggle} />
