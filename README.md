@@ -13,7 +13,8 @@ AI를 활용해서 뒹굴 뒹굴 프로젝트를 개발합니다.
 │   ├── 01-starter/        (웹)
 │   ├── 02-the-button/     (웹)
 │   ├── 03-rainy-songs/    (웹)
-│   └── 04-desktop-cat/    (앱 — macOS)
+│   ├── 04-desktop-cat/    (앱 — macOS)
+│   └── 05-hogam-detector/ (웹)
 └── README.md         # 이 파일 (프로젝트 인덱스)
 ```
 
@@ -25,6 +26,7 @@ AI를 활용해서 뒹굴 뒹굴 프로젝트를 개발합니다.
 | 02 | [the-button](projects/02-the-button/) | **웹** | Next.js + TypeScript | 이 세상에 하나뿐인 버튼 — 의미 없는 버튼 하나만 있는 사이트 |
 | 03 | [rainy-songs](projects/03-rainy-songs/) | **웹** | Next.js + TypeScript | 비 오는 날의 메모 — 빗방울 클릭하면 펼쳐지는 비 오는 날 노래 리스트 |
 | 04 | [desktop-cat](projects/04-desktop-cat/) | **앱 (macOS)** | Electron | 나고먐미인데 — macOS 데스크탑 위를 산책하는 작은 고양이 |
+| 05 | [hogam-detector](projects/05-hogam-detector/) | **웹** | Next.js + TypeScript + OpenAI | 호감판독기 — 걔 행동 적으면 AI가 차갑게 분석해주는 사이트 |
 
 > **웹** = 브라우저에서 도는 사이트 (Vercel 등에 배포)
 > **앱 (macOS)** = 본인 맥에 설치해서 도는 네이티브에 가까운 앱
