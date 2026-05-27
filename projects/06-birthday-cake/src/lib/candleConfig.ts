@@ -11,13 +11,15 @@ export type CandleAnchor = {
   scale: number;
 };
 
+// 좌표는 detect_wicks.py 로 실제 이미지에서 심지 위치를 자동 탐지해 얻음.
+// 이미지를 교체하면 동일 스크립트로 다시 측정해 갱신.
 export const CANDLE_ANCHORS: CandleAnchor[] = [
-  { id: 0, x: 0.305, y: 0.108, hue: 28, scale: 1.0 },
-  { id: 1, x: 0.405, y: 0.082, hue: 30, scale: 1.05 },
-  { id: 2, x: 0.5, y: 0.075, hue: 32, scale: 1.1 },
-  { id: 3, x: 0.595, y: 0.082, hue: 30, scale: 1.05 },
-  { id: 4, x: 0.69, y: 0.115, hue: 28, scale: 1.0 },
+  { id: 0, x: 0.285, y: 0.109, hue: 28, scale: 1.0 },
+  { id: 1, x: 0.392, y: 0.1, hue: 30, scale: 1.05 },
+  { id: 2, x: 0.503, y: 0.083, hue: 32, scale: 1.1 },
+  { id: 3, x: 0.616, y: 0.096, hue: 30, scale: 1.05 },
+  { id: 4, x: 0.723, y: 0.108, hue: 28, scale: 1.0 },
 ];
 
-export const CAKE_IMAGE_SRC = "/cake-base.png";
-export const CAKE_IMAGE_ASPECT = 1394 / 1147;
+export const CAKE_IMAGE_SRC = "/cake_base.png";
+export const CAKE_IMAGE_ASPECT = 1386 / 1135;
