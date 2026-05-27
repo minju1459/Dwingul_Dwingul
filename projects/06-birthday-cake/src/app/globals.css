@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+:root {
+  --bg-0: #000000;
+  --bg-1: #000000;
+  --bg-2: #000000;
+  --ink: #f7f4ef;
+  --ink-soft: #b9b3cf;
+  --ink-mute: #6e6688;
+  --warm: #ffd089;
+  --warm-strong: #ffb347;
+  --pink: #ff5ea0;
+  --gold: #ffe27a;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard",
+    "Pretendard Variable", "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-0);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* 순수 검정 배경 */
+.scene-bg {
+  position: fixed;
+  inset: 0;
+  background: #000000;
+  z-index: 0;
+}
+
+.scene-bg.dimmed {
+  filter: brightness(0.7);
+  transition: filter 1.2s ease;
+}
+
+.scene-bg:not(.dimmed) {
+  transition: filter 1.2s ease;
+}
+
+/* 페이드 인 */
+@keyframes fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up {
+  animation: fade-up 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Happy Birthday 글자 등장 */
+@keyframes title-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+    letter-spacing: 0.02em;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    letter-spacing: 0.06em;
+  }
+}
+
+.title-rise {
+  animation: title-rise 1.4s cubic-bezier(0.16, 0.84, 0.24, 1) both;
+}
+
+@keyframes subtle-pulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.pulse-soft {
+  animation: subtle-pulse 2.6s ease-in-out infinite;
+}
+
+/* 박수 카운터 핑 */
+@keyframes ping-once {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+.ping-once {
+  animation: ping-once 0.9s ease-out forwards;
+}
