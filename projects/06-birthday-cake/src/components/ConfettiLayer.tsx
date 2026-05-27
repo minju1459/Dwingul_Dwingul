@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import {
   spawnConfettiBurst,
   spawnConfettiCannon,
+  spawnConfettiRainStep,
   updateAndDrawConfetti,
   type ConfettiPiece,
 } from "@/lib/confetti";
@@ -20,6 +21,7 @@ type Props = {
 export default function ConfettiLayer({ handleRef }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const piecesRef = useRef<ConfettiPiece[]>([]);
+  const rainUntilRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -29,6 +31,7 @@ export default function ConfettiLayer({ handleRef }: Props) {
 
     let rafId = 0;
     let lastTs = performance.now();
+    let rainAccum = 0;
 
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -45,6 +48,19 @@ export default function ConfettiLayer({ handleRef }: Props) {
       const dt = Math.min(ts - lastTs, 50);
       lastTs = ts;
       ctx!.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      // 지속 rain — celebration 진입 후 약 5초간
+      if (ts < rainUntilRef.current) {
+        rainAccum += dt;
+        const spawnEvery = 70; // ms
+        while (rainAccum >= spawnEvery) {
+          rainAccum -= spawnEvery;
+          spawnConfettiRainStep(piecesRef.current, window.innerWidth, 4);
+        }
+      } else {
+        rainAccum = 0;
+      }
+
       updateAndDrawConfetti(ctx!, piecesRef.current, dt);
       rafId = requestAnimationFrame(frame);
     }
@@ -58,11 +74,17 @@ export default function ConfettiLayer({ handleRef }: Props) {
 
   useEffect(() => {
     handleRef.current = {
-      burst: (x, y, count = 26) => {
-        spawnConfettiBurst(piecesRef.current, x, y, count, 0.85);
+      burst: (x, y, count = 30) => {
+        spawnConfettiBurst(piecesRef.current, x, y, count, 0.9);
       },
       cannon: () => {
-        spawnConfettiCannon(piecesRef.current, window.innerWidth, window.innerHeight, 140);
+        spawnConfettiCannon(
+          piecesRef.current,
+          window.innerWidth,
+          window.innerHeight,
+          360,
+        );
+        rainUntilRef.current = performance.now() + 5200;
       },
     };
     return () => {
