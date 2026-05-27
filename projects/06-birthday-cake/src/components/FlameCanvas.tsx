@@ -21,10 +21,17 @@ type Props = {
   handleRef?: React.MutableRefObject<FlameCanvasHandle | null>;
 };
 
+// 케이크 영역 위로 캔버스를 얼마나 더 확장할지 (cake 높이 대비 비율).
+// 불꽃이 심지 끝에서 위로 자라는 분량 + 연기 burst 여유까지 포함.
+const HEAD_ROOM_RATIO = 0.22;
+
 export default function FlameCanvas({ onAllOut, onCandleOut, handleRef }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const candlesRef = useRef<Candle[]>([]);
   const allOutFiredRef = useRef(false);
+  const cakeOriginYRef = useRef(0);
+  const cakeWidthRef = useRef(0);
+  const cakeHeightRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -43,11 +50,18 @@ export default function FlameCanvas({ onAllOut, onCandleOut, handleRef }: Props)
       if (!parent) return;
       const rect = parent.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas!.width = Math.floor(rect.width * dpr);
-      canvas!.height = Math.floor(rect.height * dpr);
-      canvas!.style.width = `${rect.width}px`;
-      canvas!.style.height = `${rect.height}px`;
+      const headroom = Math.round(rect.height * HEAD_ROOM_RATIO);
+      const totalW = rect.width;
+      const totalH = rect.height + headroom;
+      canvas!.width = Math.floor(totalW * dpr);
+      canvas!.height = Math.floor(totalH * dpr);
+      canvas!.style.width = `${totalW}px`;
+      canvas!.style.height = `${totalH}px`;
+      canvas!.style.top = `-${headroom}px`;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cakeOriginYRef.current = headroom;
+      cakeWidthRef.current = totalW;
+      cakeHeightRef.current = rect.height;
     }
 
     resize();
@@ -57,16 +71,20 @@ export default function FlameCanvas({ onAllOut, onCandleOut, handleRef }: Props)
     function frame(ts: number) {
       const dt = Math.min(ts - lastTs, 50);
       lastTs = ts;
-      const width = canvas!.clientWidth;
-      const height = canvas!.clientHeight;
-      ctx!.clearRect(0, 0, width, height);
+      const totalW = canvas!.clientWidth;
+      const totalH = canvas!.clientHeight;
+      ctx!.clearRect(0, 0, totalW, totalH);
 
-      const rc = { ctx: ctx!, width, height, dpr: 1 };
+      const rc = {
+        ctx: ctx!,
+        cakeOriginY: cakeOriginYRef.current,
+        cakeWidth: cakeWidthRef.current,
+        cakeHeight: cakeHeightRef.current,
+      };
       for (const c of candlesRef.current) {
         drawCandle(rc, c, ts, dt);
       }
 
-      // 전부 꺼졌고 연기도 거의 다 사라졌을 때 한 번만 fire
       if (
         !allOutFiredRef.current &&
         candlesRef.current.every((c) => c.state === "out")
@@ -93,10 +111,12 @@ export default function FlameCanvas({ onAllOut, onCandleOut, handleRef }: Props)
         if (!target) return false;
         setCandleState(target, "extinguishing", performance.now());
         const canvas = canvasRef.current;
-        if (canvas && onCandleOut) {
-          const rect = canvas.getBoundingClientRect();
-          const ox = rect.left + target.anchor.x * rect.width;
-          const oy = rect.top + target.anchor.y * rect.height;
+        const parent = canvas?.parentElement;
+        if (parent && onCandleOut) {
+          // confetti burst 의 origin 은 케이크 이미지 영역 기준으로 잡음
+          const cakeRect = parent.getBoundingClientRect();
+          const ox = cakeRect.left + target.anchor.x * cakeRect.width;
+          const oy = cakeRect.top + target.anchor.y * cakeRect.height;
           onCandleOut(ox, oy);
         }
         return true;
@@ -116,7 +136,7 @@ export default function FlameCanvas({ onAllOut, onCandleOut, handleRef }: Props)
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 pointer-events-none"
+      className="absolute left-0 right-0 pointer-events-none"
       aria-hidden
     />
   );

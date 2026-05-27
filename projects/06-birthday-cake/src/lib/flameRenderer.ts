@@ -75,16 +75,19 @@ function spawnSmokeTrickle(candle: Candle) {
 
 export type RenderContext = {
   ctx: CanvasRenderingContext2D;
-  width: number;
-  height: number;
-  dpr: number;
+  /** 케이크 이미지 영역이 캔버스 내에서 시작하는 y(px). 위쪽 헤드룸 분량. */
+  cakeOriginY: number;
+  /** 케이크 이미지 영역의 가로 px (=캔버스 width 와 동일). */
+  cakeWidth: number;
+  /** 케이크 이미지 영역의 세로 px. 캔버스는 이것보다 cakeOriginY 만큼 더 큼. */
+  cakeHeight: number;
 };
 
 export function drawCandle(rc: RenderContext, candle: Candle, now: number, dt: number) {
-  const { ctx, width, height } = rc;
-  const cx = candle.anchor.x * width;
-  const cy = candle.anchor.y * height;
-  const scale = candle.anchor.scale * Math.min(width / 480, 1.6);
+  const { ctx, cakeWidth, cakeHeight, cakeOriginY } = rc;
+  const cx = candle.anchor.x * cakeWidth;
+  const cy = cakeOriginY + candle.anchor.y * cakeHeight;
+  const scale = candle.anchor.scale * Math.min(cakeWidth / 480, 1.6);
   const elapsed = now - candle.stateStart;
 
   ctx.save();
