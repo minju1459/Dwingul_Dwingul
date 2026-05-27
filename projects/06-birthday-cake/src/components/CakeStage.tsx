@@ -22,6 +22,7 @@ export default function CakeStage({ handleRef, onAllOut, onCandleOut }: Props) {
           alt="생일 케이크"
           fill
           priority
+          unoptimized
           sizes="(max-width: 768px) 92vw, 640px"
           className="object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.55)] select-none pointer-events-none"
         />
