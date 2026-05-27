@@ -70,22 +70,99 @@ button {
   animation: fade-up 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-/* Happy Birthday 글자 등장 */
+/* Happy Birthday 글자 등장 — 임팩트 강화 */
 @keyframes title-rise {
   0% {
     opacity: 0;
-    transform: translateY(24px) scale(0.96);
+    transform: translateY(40px) scale(0.7);
     letter-spacing: 0.02em;
+    filter: blur(8px);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.06);
+    filter: blur(0);
   }
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
+    filter: blur(0);
   }
 }
 
 .title-rise {
   animation: title-rise 1.4s cubic-bezier(0.16, 0.84, 0.24, 1) both;
+}
+
+/* 무지개/골드 흐르는 그라데이션 — 텍스트에 매핑 */
+@keyframes shine-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.shimmer-text {
+  background-image: linear-gradient(
+    100deg,
+    #fff066 0%,
+    #ff9ec7 18%,
+    #c4b5fd 36%,
+    #7dd3fc 54%,
+    #fff7c8 72%,
+    #ffd089 90%,
+    #fff066 100%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: shine-flow 3.6s linear infinite;
+  filter:
+    drop-shadow(0 0 22px rgba(255, 200, 130, 0.55))
+    drop-shadow(0 0 48px rgba(255, 120, 180, 0.35));
+}
+
+/* 글자 뒤 빛 spotlight */
+@keyframes spotlight-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.06); }
+}
+
+.title-spotlight {
+  position: absolute;
+  inset: -40% -20%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 210, 140, 0.45) 0%,
+    rgba(255, 140, 200, 0.22) 35%,
+    transparent 70%
+  );
+  filter: blur(28px);
+  z-index: -1;
+  animation: spotlight-pulse 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* 반짝이는 별 */
+@keyframes sparkle-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  40% { opacity: 1; transform: scale(1) rotate(20deg); }
+  60% { opacity: 1; transform: scale(1.1) rotate(-15deg); }
+}
+
+.sparkle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background:
+    radial-gradient(circle, #fff 0%, #fff 30%, transparent 60%),
+    linear-gradient(45deg, transparent 46%, #fff 49%, #fff 51%, transparent 54%),
+    linear-gradient(135deg, transparent 46%, #fff 49%, #fff 51%, transparent 54%);
+  background-blend-mode: screen;
+  animation: sparkle-twinkle 1.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 6px rgba(255, 230, 180, 0.9));
+  pointer-events: none;
 }
 
 @keyframes subtle-pulse {
