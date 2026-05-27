@@ -45,12 +45,6 @@ export default function Celebration({ visible }: Props) {
           />
         ))}
       </div>
-      <p
-        className="fade-up mt-4 text-[15px] sm:text-lg text-[var(--ink-soft)]"
-        style={{ animationDelay: "0.7s" }}
-      >
-        오늘 하루 빛나길 바라요 ✨
-      </p>
     </div>
   );
 }
