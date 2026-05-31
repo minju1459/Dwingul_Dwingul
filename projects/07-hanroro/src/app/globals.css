@@ -1,0 +1,148 @@
+@import "tailwindcss";
+
+:root {
+  --bg-deep: #0a0a1a;
+  --bg-mid: #111128;
+  --purple: #a78bfa;
+  --pink: #f9a8d4;
+  --cyan: #67e8f9;
+  --star: #e2e8f0;
+  --font-sans: var(--font-noto);
+}
+
+@theme inline {
+  --font-sans: var(--font-noto);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-deep);
+  color: #f3f4f6;
+  font-family: var(--font-noto), "Noto Sans KR", sans-serif;
+  overflow-x: hidden;
+}
+
+/* 별 배경 */
+.stars {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.star {
+  position: absolute;
+  border-radius: 50%;
+  background: white;
+  animation: twinkle var(--duration, 3s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+/* 픽셀 캐릭터 float */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-18px); }
+}
+
+@keyframes walk {
+  0%, 100% { transform: translateX(0px) scaleX(1); }
+  25% { transform: translateX(12px) scaleX(1); }
+  50% { transform: translateX(0px) scaleX(-1); }
+  75% { transform: translateX(-12px) scaleX(-1); }
+}
+
+.pixel-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* 걷기: 위아래 bob */
+@keyframes bob {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+.pixel-bob {
+  animation: bob 0.5s ease-in-out infinite;
+}
+
+/* 음표 둥둥 */
+@keyframes floatNote {
+  0%, 100% { transform: translateY(0px); opacity: 0.25; }
+  50% { transform: translateY(-12px); opacity: 0.5; }
+}
+
+/* 달리기 */
+@keyframes run-bob {
+  0%   { transform: translateY(0px); }
+  25%  { transform: translateY(-10px); }
+  50%  { transform: translateY(-2px); }
+  75%  { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+.pixel-run {
+  animation: run-bob 0.22s ease-in-out infinite;
+}
+
+/* 바람 줄무늬 */
+@keyframes windLine {
+  from { transform: translateX(0); opacity: 0.9; }
+  to   { transform: translateX(-110vw); opacity: 0.1; }
+}
+
+/* 반짝이 */
+@keyframes sparklePop {
+  0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+  50%       { opacity: 1; transform: scale(1) rotate(180deg); }
+}
+
+/* 구름 이동 */
+@keyframes cloudDrift {
+  from { transform: translateX(110vw); }
+  to   { transform: translateX(-30vw); }
+}
+
+/* 놀람 ! */
+@keyframes surprisePop {
+  0%   { transform: scale(0) translateY(8px); opacity: 0; }
+  60%  { transform: scale(1.3) translateY(-2px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* 배경 그라디언트 orb */
+.orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 카드 hover glow */
+.song-card {
+  transition: all 0.3s ease;
+  backdrop-filter: blur(12px);
+}
+.song-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 0 24px rgba(167, 139, 250, 0.4);
+}
+
+/* 픽셀 이미지 렌더링 */
+.pixel-art {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* 스크롤바 */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 3px; }
