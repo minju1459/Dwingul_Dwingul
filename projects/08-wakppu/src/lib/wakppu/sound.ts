@@ -257,6 +257,21 @@ function makeLoopNoiseBuffer(seconds: number) {
  * 짓누르기 시작 — 지속 crackle 톤이 흘러가기 시작.
  * 이미 켜져있으면 stage/tone 만 갱신.
  */
+/**
+ * 사용자가 mp3 자산을 하나라도 넣어둔 상태인지.
+ *
+ * checkAssets() 가 async 라서 첫 호출 시점에는 sustainedPath 가 아직
+ * null 이지만 mp3 파일은 디스크에 있을 가능성이 있음. 그래서 자산
+ * 체크가 끝나기 전(!assetsChecked) 에는 보수적으로 true 를 돌려줘
+ * 합성 fallback 을 끄고 mp3 디코드 완료까지 무음으로 기다리게 함.
+ *
+ * 자산 체크가 끝나서 정말로 자산이 하나도 없다고 확인된 경우에만 false.
+ */
+function hasUserAudio(): boolean {
+  if (!assetsChecked) return true;
+  return sustainedPath !== null || availableSamples.length > 0;
+}
+
 export function startCrackle(stage: CrackStage, tone: ToneHint) {
   const c = ensureAudio();
   const mg = masterGain;
@@ -265,6 +280,12 @@ export function startCrackle(stage: CrackStage, tone: ToneHint) {
 
   // 외부 sustained.mp3 가 있으면 그걸 loop 로 우선 사용
   if (startSustainedAudio(0.4 + stage * 0.08)) {
+    schedulePopLoop(stage, tone);
+    return;
+  }
+
+  // mp3 자산이 있는데 아직 디코드 전이면 그냥 대기 (합성 fallback 안 씀)
+  if (hasUserAudio()) {
     schedulePopLoop(stage, tone);
     return;
   }
@@ -372,6 +393,10 @@ export function playMicroPop(stage: CrackStage, tone: ToneHint, scale = 1) {
   // 외부 crack-NN.mp3 풀이 있으면 그 중 랜덤 재생
   const sampleVol = Math.min(1, 0.5 + stage * 0.1) * scale;
   if (playSample(sampleVol)) return;
+
+  // 사용자 mp3 자산이 있는데 micro-pop 풀은 비어있는 경우 — 합성 안 함 (무음).
+  // sustained.mp3 만 깔고 micro-pop 은 자연스럽게 비워두는 게 더 자연스러움.
+  if (hasUserAudio()) return;
 
   const base = HINT_BASE[tone];
   const mul = STAGE_MUL[stage];
