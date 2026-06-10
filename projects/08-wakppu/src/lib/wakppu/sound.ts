@@ -470,6 +470,8 @@ export function playReassemble() {
   const c = ensureAudio();
   const mg = masterGain;
   if (!c || !mg) return;
+  // mp3 모드면 합성 톤 모두 무음
+  if (hasUserAudio()) return;
   const now = c.currentTime;
   const o = c.createOscillator();
   o.type = "sine";
@@ -492,6 +494,8 @@ export function playJingle() {
   const c = ensureAudio();
   const mg = masterGain;
   if (!c || !mg) return;
+  // mp3 모드면 합성 톤 모두 무음
+  if (hasUserAudio()) return;
   const now = c.currentTime;
   const notes = [880, 1108.73, 1318.51];
   notes.forEach((f, i) => {
