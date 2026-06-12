@@ -6,13 +6,14 @@ export const VARIANTS: WakppuVariant[] = [
     name: "무지개 도넛",
     shell: {
       kind: "donut",
-      // 사용자 설명: 도넛은 안쪽이 하늘색/노란색/핑크 그라데이션, 바깥은 하얀 막
-      innerColors: ["#ffd5e8", "#ffe8b8", "#c5e9ff", "#e4d4ff"],
+      // 사용자 설명: 도넛은 안쪽이 하늘색/노란색/핑크 그라데이션, 바깥은 하얀 막.
+      // 부서질 때 강하게 보이도록 파스텔보다 진한 톤으로.
+      innerColors: ["#ff7eb5", "#ffd76b", "#7dd3fc", "#c4b5fd"],
       glaze: "#ffffff",
       sprinkles: ["#ff6fa5", "#ffd76b", "#7dd3fc", "#86efac", "#c4b5fd", "#fff066"],
     },
     toneHint: "light",
-    accent: "#ffb1d8",
+    accent: "#ff8fb3",
   },
   {
     id: "greenApple",

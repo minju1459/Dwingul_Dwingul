@@ -88,7 +88,7 @@ function drawDonutShell(
 ) {
   const alpha = 1 - broken * 0.95;
   if (alpha <= 0.02) return;
-  const inner = R * 0.32; // 도넛 가운데 구멍 반경
+  const inner = R * 0.2; // 도넛 가운데 구멍 — 더 작게 해서 부서지는 면적 ↑
 
   // 1. 도넛 본체(안쪽 무지개 그라데이션)
   ctx.save();
@@ -107,7 +107,8 @@ function drawDonutShell(
   ctx.fillRect(-R, -R, R * 2, R * 2);
   ctx.restore();
 
-  // 2. 하얀 막(왁스 코팅) — broken 만큼 깎임
+  // 2. 하얀 막(왁스 코팅) — broken 만큼 깎임.
+  // 알파를 낮춰 안쪽 무지개가 더 잘 비치게 함.
   const glazeAlpha = Math.max(0, 1 - broken * 1.2);
   if (glazeAlpha > 0.02) {
     ctx.save();
@@ -116,10 +117,9 @@ function drawDonutShell(
     ctx.arc(0, 0, inner * 1.05, 0, Math.PI * 2, true);
     ctx.closePath();
     ctx.clip();
-    // 코팅에 미세 그라데이션
     const gg = ctx.createRadialGradient(-R * 0.2, -R * 0.3, R * 0.1, 0, 0, R);
-    gg.addColorStop(0, withAlpha(shell.glaze, 0.95 * glazeAlpha));
-    gg.addColorStop(1, withAlpha(shell.glaze, 0.65 * glazeAlpha));
+    gg.addColorStop(0, withAlpha(shell.glaze, 0.7 * glazeAlpha));
+    gg.addColorStop(1, withAlpha(shell.glaze, 0.4 * glazeAlpha));
     ctx.fillStyle = gg;
     ctx.fillRect(-R, -R, R * 2, R * 2);
     ctx.restore();
@@ -202,7 +202,7 @@ export function drawSlime(
   ctx.scale(transform.squashX, transform.squashY);
 
   const baseColor = shell.kind === "donut" ? shell.innerColors[0] : shell.innerColor;
-  const inner = shell.kind === "donut" ? R * 0.32 : 0;
+  const inner = shell.kind === "donut" ? R * 0.2 : 0;
 
   // 슬라임 영역 클립
   ctx.save();
