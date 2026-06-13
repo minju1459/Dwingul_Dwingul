@@ -50,7 +50,12 @@ type Props = {
 };
 
 // 다음 stage 로 넘어가기까지 짓눌러야 하는 시간(ms). 짧을수록 빨리 부숴짐.
-const PROGRESS_PER_STAGE = 380;
+// 한 단계당 짓누름 시간을 늘려서 5 단계 = 약 10 회의 짓누름이 필요한 톤.
+const PROGRESS_PER_STAGE = 900;
+
+// 단계별 겉면 소실 비율 — 완파(stage 5) 에서도 18% 정도 남아있어
+// 겉 색과 속 색이 자연스럽게 어우러진 "다 부숴진 모양" 으로 끝남.
+const BROKEN_BY_STAGE = [0, 0.14, 0.28, 0.46, 0.66, 0.82];
 
 export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRef }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -114,42 +119,28 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
 
       ctx!.clearRect(0, 0, w, h);
 
-      // 슬라임 노출 — 누를수록 안쪽이 점점 비치게 (균열 갭 사이로 안쪽 색이
-      // 면적으로 보이도록 단계별 노출량을 더 키움)
-      const EXP_BY_STAGE = [0, 0.28, 0.48, 0.65, 0.85, 1];
-      const baseExp =
-        rebuildRef.current > 0 ? 0 : EXP_BY_STAGE[Math.min(5, stageRef.current)];
-      // 짓누르는 중에는 보간 시 단계 사이 분위기를 더 빨리 끌어올림
-      const liveExp = pressActiveRef.current
-        ? baseExp +
-          (EXP_BY_STAGE[Math.min(5, stageRef.current + 1)] - baseExp) *
-            pressProgressRef.current *
-            0.7
-        : baseExp;
-      slimeExposureRef.current += (liveExp - slimeExposureRef.current) * 0.18;
-
-      // 짓누르는 동안 살짝 squash 유지, 떼면 spring 복귀
-      const targetSx = pressActiveRef.current ? 0.95 - pressProgressRef.current * 0.04 : 1;
-      const targetSy = pressActiveRef.current ? 1.05 + pressProgressRef.current * 0.04 : 1;
-      squashRef.current.x += (targetSx - squashRef.current.x) * 0.2;
-      squashRef.current.y += (targetSy - squashRef.current.y) * 0.2;
+      // 공통: slimePhase 와 파편/먼지 업데이트
       slimePhaseRef.current += dt * 0.0025;
-
-      // 균열 보간
-      updateCrackField(crackRef.current, dt);
-
-      // broken 점진 — 짓누르는 동안 stage 기반 + 라이브 진행 가산
-      const baseBroken = Math.min(1, stageRef.current / 5);
-      const liveBroken = pressActiveRef.current
-        ? Math.min(1, baseBroken + pressProgressRef.current / 5)
-        : baseBroken;
-      brokenRef.current += (liveBroken - brokenRef.current) * 0.18;
-
-      // 파편/먼지 업데이트
       updateShardField(shardRef.current, dt);
 
-      // 다시 만들기 중이면 파편 → 중심, crack reveal 줄어듦
+      const EXP_BY_STAGE = [0, 0.28, 0.48, 0.65, 0.85, 1];
+
       if (rebuildRef.current > 0) {
+        // ── 다시 만들기 ─────────────────────────────────────────
+        // 평소 보간 분기를 끄고 모든 값을 빠르게 0 으로 끌어내림.
+        // (평소 분기에서 stage=5 기준으로 broken/reveal 을 다시 1 로
+        // 끌어올려 서로 상쇄되던 버그 fix)
+        rebuildRef.current = Math.max(0, rebuildRef.current - dt / 800);
+
+        slimeExposureRef.current = Math.max(0, slimeExposureRef.current - dt * 0.004);
+        brokenRef.current = Math.max(0, brokenRef.current - dt * 0.0028);
+        for (const l of crackRef.current.lines) {
+          l.reveal = Math.max(0, l.reveal - dt * 0.005);
+        }
+
+        squashRef.current.x += (1 - squashRef.current.x) * 0.18;
+        squashRef.current.y += (1 - squashRef.current.y) * 0.18;
+
         const k = Math.min(1, dt / 16.67) * 0.13;
         for (const s of shardRef.current.shards) {
           s.vx *= 0.86;
@@ -158,16 +149,39 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
           s.y += (0 - s.y) * k;
           s.life = Math.max(0, s.life - dt * 1.3);
         }
-        for (const l of crackRef.current.lines) l.reveal = Math.max(0, l.reveal - dt * 0.004);
-        brokenRef.current = Math.max(0, brokenRef.current - dt * 0.0012);
-        rebuildRef.current = Math.max(0, rebuildRef.current - dt / 800);
+
         if (rebuildRef.current <= 0) {
           clearShards(shardRef.current);
           clearField(crackRef.current);
           brokenRef.current = 0;
+          slimeExposureRef.current = 0;
           stageRef.current = 0;
           onStageChange(0);
         }
+      } else {
+        // ── 평상시 ─────────────────────────────────────────────
+        const baseExp = EXP_BY_STAGE[Math.min(5, stageRef.current)];
+        const liveExp = pressActiveRef.current
+          ? baseExp +
+            (EXP_BY_STAGE[Math.min(5, stageRef.current + 1)] - baseExp) *
+              pressProgressRef.current *
+              0.7
+          : baseExp;
+        slimeExposureRef.current += (liveExp - slimeExposureRef.current) * 0.18;
+
+        const targetSx = pressActiveRef.current ? 0.95 - pressProgressRef.current * 0.04 : 1;
+        const targetSy = pressActiveRef.current ? 1.05 + pressProgressRef.current * 0.04 : 1;
+        squashRef.current.x += (targetSx - squashRef.current.x) * 0.2;
+        squashRef.current.y += (targetSy - squashRef.current.y) * 0.2;
+
+        updateCrackField(crackRef.current, dt);
+
+        const baseBroken = BROKEN_BY_STAGE[Math.min(5, stageRef.current)];
+        const nextBroken = BROKEN_BY_STAGE[Math.min(5, stageRef.current + 1)];
+        const liveBroken = pressActiveRef.current
+          ? baseBroken + (nextBroken - baseBroken) * pressProgressRef.current
+          : baseBroken;
+        brokenRef.current += (liveBroken - brokenRef.current) * 0.18;
       }
 
       // ── 그리기 ─────────────────────────────────────────────────────────
@@ -294,8 +308,9 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
           if (next >= 3) spawnShards(shardRef.current, local, 10 + next * 4, palette, power);
           if (next >= 2) spawnDust(shardRef.current, local, 6 + next * 3);
           if (next === 5) {
-            spawnShards(shardRef.current, { x: 0, y: 0 }, 36, palette, 1.4);
-            spawnDust(shardRef.current, { x: 0, y: 0 }, 22);
+            // 완파지만 표면이 18% 정도 남아있는 "자연스럽게 다 부숴진" 톤
+            spawnShards(shardRef.current, { x: 0, y: 0 }, 24, palette, 1.2);
+            spawnDust(shardRef.current, { x: 0, y: 0 }, 16);
             pressActiveRef.current = false;
             onBreak();
           }
@@ -306,7 +321,7 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
       },
       pressStop: () => {
         pressActiveRef.current = false;
-        pressProgressRef.current = 0;
+        // pressProgress 는 유지 — 짧게 톡톡 누르고 떼도 누적되어 단계 진행
         microCrackTimerRef.current = 0;
       },
       rebuild: () => {
