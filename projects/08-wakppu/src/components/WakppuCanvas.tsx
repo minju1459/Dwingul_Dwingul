@@ -33,8 +33,10 @@ export type WakppuCanvasHandle = {
   pressTick: (dt: number) => { advancedTo: CrackStage | null; progress: number };
   /** 짓누르기 종료. */
   pressStop: () => void;
-  /** 모두 원래대로 복구. */
+  /** "다시 만들기" — 0.8s 부드러운 역 애니메이션. */
   rebuild: () => void;
+  /** 즉시 초기 상태로 (variant 변경 시처럼 애니메이션 없이 깔끔하게). */
+  reset: () => void;
   /** 슬라임 드래그 변위. */
   setDrag: (dx: number, dy: number) => void;
   releaseDrag: () => void;
@@ -262,10 +264,21 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
         pressActiveRef.current = true;
         pressProgressRef.current = 0;
         microCrackTimerRef.current = 0;
-        pressOriginRef.current = {
+        let local = {
           x: x - centerRef.current.x,
           y: y - centerRef.current.y,
         };
+        // 도넛이면 가운데 구멍 안쪽 클릭은 본체 영역 외곽으로 밀어냄
+        const innerR = getDonutInnerRadius(variantRef.current, radiusRef.current);
+        if (innerR > 0) {
+          const d = Math.hypot(local.x, local.y);
+          if (d < innerR * 1.05) {
+            const ang = d > 0.001 ? Math.atan2(local.y, local.x) : Math.random() * Math.PI * 2;
+            const target = innerR * 1.15;
+            local = { x: Math.cos(ang) * target, y: Math.sin(ang) * target };
+          }
+        }
+        pressOriginRef.current = local;
       },
       pressTick: (dt) => {
         if (!pressActiveRef.current || stageRef.current >= 5) {
@@ -278,21 +291,27 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
 
         // 짓누르는 동안 작은 균열을 점진적으로 추가 — "균열이 자라는" 효과
         microCrackTimerRef.current += dt;
-        const microGap = 95; // ms
+        const microGap = 95;
+        const R = radiusRef.current;
+        const innerR = getDonutInnerRadius(variantRef.current, R);
         while (microCrackTimerRef.current >= microGap) {
           microCrackTimerRef.current -= microGap;
           const jitter = 18 + Math.random() * 24;
           const ang = Math.random() * Math.PI * 2;
-          const origin = {
-            x: pressOriginRef.current.x + Math.cos(ang) * jitter,
-            y: pressOriginRef.current.y + Math.sin(ang) * jitter,
-          };
-          // 짧은 한 가닥
+          const origin = clampToShell(
+            {
+              x: pressOriginRef.current.x + Math.cos(ang) * jitter,
+              y: pressOriginRef.current.y + Math.sin(ang) * jitter,
+            },
+            R,
+            innerR,
+          );
           spawnCrack(
             crackRef.current,
             origin,
             Math.max(1, stageRef.current),
-            radiusRef.current,
+            R,
+            innerR,
           );
         }
 
@@ -300,17 +319,16 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
           const next = Math.min(5, stageRef.current + 1) as CrackStage;
           stageRef.current = next;
           pressProgressRef.current = 0;
-          // 단계 진행 — 추가 크랙 + 파편
           const local = pressOriginRef.current;
-          const R = radiusRef.current;
-          spawnCrack(crackRef.current, local, next, R);
+          spawnCrack(crackRef.current, local, next, R, innerR);
           const palette = palette4(variantRef.current);
           const power = 0.6 + next * 0.2;
           if (next >= 3) spawnShards(shardRef.current, local, 10 + next * 4, palette, power);
           if (next >= 2) spawnDust(shardRef.current, local, 6 + next * 3);
           if (next === 5) {
-            // 완파지만 표면이 18% 정도 남아있는 "자연스럽게 다 부숴진" 톤
-            spawnShards(shardRef.current, { x: 0, y: 0 }, 24, palette, 1.2);
+            // 완파지만 표면 18% 남는 자연스러운 톤. 도넛이면 가운데
+            // 구멍 안에서 파편이 안 튀게 일정 반경(annulus) 안에 spawn.
+            spawnShellShards(shardRef.current, R, innerR, palette);
             spawnDust(shardRef.current, { x: 0, y: 0 }, 16);
             pressActiveRef.current = false;
             onBreak();
@@ -329,6 +347,20 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
         rebuildRef.current = 1;
         pressActiveRef.current = false;
         pressProgressRef.current = 0;
+      },
+      reset: () => {
+        // variant 교체 시처럼 애니메이션 없이 즉시 0 으로
+        rebuildRef.current = 0;
+        pressActiveRef.current = false;
+        pressProgressRef.current = 0;
+        microCrackTimerRef.current = 0;
+        brokenRef.current = 0;
+        slimeExposureRef.current = 0;
+        squashRef.current = { x: 1, y: 1 };
+        stageRef.current = 0;
+        clearField(crackRef.current);
+        clearShards(shardRef.current);
+        onStageChange(0);
       },
       setDrag: (dx, dy) => {
         dragRef.current = { x: dx, y: dy };
@@ -360,6 +392,49 @@ function getInnerColor(v: WakppuVariant): string {
 function getOuterColor(v: WakppuVariant): string {
   if (v.shell.kind === "donut") return v.shell.glaze;
   return v.shell.outerColor;
+}
+
+// 도넛 가운데 구멍 반경 (wakppuRenderer 의 inner = R*0.2 와 동일해야 정렬).
+function getDonutInnerRadius(v: WakppuVariant, R: number): number {
+  return v.shell.kind === "donut" ? R * 0.2 : 0;
+}
+
+function clampToShell(p: { x: number; y: number }, R: number, innerR: number) {
+  const d = Math.hypot(p.x, p.y);
+  // 외곽 92% 안으로
+  const maxR = R * 0.9;
+  if (d > maxR) {
+    const ang = Math.atan2(p.y, p.x);
+    return { x: Math.cos(ang) * maxR, y: Math.sin(ang) * maxR };
+  }
+  // 도넛 구멍 안이면 바깥으로
+  if (innerR > 0 && d < innerR * 1.05) {
+    const ang = d > 0.001 ? Math.atan2(p.y, p.x) : Math.random() * Math.PI * 2;
+    const target = innerR * 1.15;
+    return { x: Math.cos(ang) * target, y: Math.sin(ang) * target };
+  }
+  return p;
+}
+
+/**
+ * 완파 시 본체 영역(annulus) 안에서 파편을 spawn — 가운데 구멍에서
+ * 튀어나오지 않게.
+ */
+function spawnShellShards(
+  field: ReturnType<typeof makeShardField> extends infer T ? T : never,
+  R: number,
+  innerR: number,
+  palette: string[],
+) {
+  const N = 24;
+  for (let i = 0; i < N; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const rMin = Math.max(innerR * 1.15, R * 0.25);
+    const rMax = R * 0.85;
+    const r = rMin + Math.random() * (rMax - rMin);
+    const origin = { x: Math.cos(ang) * r, y: Math.sin(ang) * r };
+    spawnShards(field as ReturnType<typeof makeShardField>, origin, 1, palette, 1.2);
+  }
 }
 
 function palette4(v: WakppuVariant): string[] {

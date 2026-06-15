@@ -36,15 +36,37 @@ export function spawnCrack(
   origin: Vec2,
   stage: number,
   radius: number,
+  innerRadius = 0,
 ) {
-  // 매번 더 많은 가닥으로 잘게 쪼개진 파편 패턴을 만듦
-  const branches = 4 + stage * 2; // 6 ~ 14
+  const branches = 4 + stage * 2;
   const baseLen = 14 + stage * 10;
 
   for (let i = 0; i < branches; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const line = growCrack(origin, angle, baseLen + Math.random() * 26, radius, stage);
-    field.lines.push(line);
+    const main = growCrack(
+      origin,
+      angle,
+      baseLen + Math.random() * 26,
+      radius,
+      stage,
+      innerRadius,
+    );
+    if (main.points.length < 2) continue;
+    field.lines.push(main);
+
+    // 진짜 fracture 처럼 메인 가닥에서 sub-branch 1~3 개 뻗어 나옴
+    const subN = 1 + Math.floor(Math.random() * 3);
+    for (let j = 0; j < subN; j++) {
+      const idx = 1 + Math.floor(Math.random() * (main.points.length - 1));
+      const base = main.points[idx];
+      const subAngle = angle + (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 0.8);
+      const subLen = (baseLen * 0.4) + Math.random() * (baseLen * 0.5);
+      const sub = growCrack(base, subAngle, subLen, radius, stage, innerRadius);
+      if (sub.points.length >= 2) {
+        sub.width = main.width * (0.5 + Math.random() * 0.25);
+        field.lines.push(sub);
+      }
+    }
   }
 }
 
@@ -54,11 +76,12 @@ function growCrack(
   maxLen: number,
   radius: number,
   stage: number,
+  innerRadius = 0,
 ): CrackLine {
   const points: Vec2[] = [{ ...start }];
   const step = 5 + Math.random() * 3;
   let angle = angle0;
-  const angleNoise = 0.18 + stage * 0.04; // 더 험한 균열
+  const angleNoise = 0.18 + stage * 0.04;
   let len = 0;
   let x = start.x;
   let y = start.y;
@@ -66,14 +89,15 @@ function growCrack(
     angle += (Math.random() - 0.5) * angleNoise;
     x += Math.cos(angle) * step;
     y += Math.sin(angle) * step;
-    // 클리핑: 반경 밖으로 나가면 중단
-    if (Math.hypot(x, y) > radius * 0.92) break;
+    const d = Math.hypot(x, y);
+    // 도넛 가운데 구멍 안으로는 균열 자라지 않음
+    if (innerRadius > 0 && d < innerRadius) break;
+    if (d > radius * 0.92) break;
     points.push({ x, y });
     len += step;
   }
   return {
     points,
-    // 더 두꺼운 갭으로 파편 사이에 안쪽 색이 면적으로 보이게
     width: 3 + Math.random() * (2 + stage * 1.0),
     reveal: 0,
     seed: Math.random() * 1000,
@@ -119,7 +143,10 @@ export function drawCracks(
   ctx.shadowBlur = 4;
   ctx.strokeStyle = withAlpha(blendShadow, 0.4);
   for (const l of field.lines) {
-    const cut = Math.max(2, Math.floor(l.points.length * l.reveal));
+    const cut = Math.min(
+      l.points.length,
+      Math.max(2, Math.floor(l.points.length * l.reveal)),
+    );
     ctx.lineWidth = l.width + 3;
     ctx.beginPath();
     for (let i = 0; i < cut; i++) {
@@ -134,7 +161,10 @@ export function drawCracks(
   // 2) 갭 면적 — segment 별로 색 분배 (안 색 40 / 겉 색 30 / mix 30).
   //    매 segment 마다 색이 바뀌어 자연스럽게 두 색이 어우러진 갭이 됨.
   for (const l of field.lines) {
-    const cut = Math.max(2, Math.floor(l.points.length * l.reveal));
+    const cut = Math.min(
+      l.points.length,
+      Math.max(2, Math.floor(l.points.length * l.reveal)),
+    );
     ctx.lineWidth = Math.max(1.8, l.width * 0.92);
     for (let i = 1; i < cut; i++) {
       const a = l.points[i - 1];
@@ -156,7 +186,10 @@ export function drawCracks(
   ctx.globalCompositeOperation = "lighter";
   ctx.strokeStyle = withAlpha(lightenColor(innerColor, 0.55), 0.65);
   for (const l of field.lines) {
-    const cut = Math.max(2, Math.floor(l.points.length * l.reveal));
+    const cut = Math.min(
+      l.points.length,
+      Math.max(2, Math.floor(l.points.length * l.reveal)),
+    );
     ctx.lineWidth = Math.max(0.5, l.width * 0.3);
     for (let i = 1; i < cut; i++) {
       const h = hash01(l.seed + 999, i);

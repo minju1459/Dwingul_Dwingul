@@ -196,7 +196,8 @@ export default function WakppuStage() {
   const onSelectVariant = useCallback((v: WakppuVariant) => {
     setVariant(v);
     setRareActive(false);
-    handleRef.current?.rebuild();
+    // variant 교체는 애니메이션 없이 즉시 깔끔하게 리셋
+    handleRef.current?.reset();
     setTitleVisible(true);
     stopPressLoop();
   }, [stopPressLoop]);
@@ -216,7 +217,7 @@ export default function WakppuStage() {
 
   const onApplyCustom = useCallback((v: WakppuVariant) => {
     setVariant(v);
-    handleRef.current?.rebuild();
+    handleRef.current?.reset();
     setTitleVisible(true);
   }, []);
 
