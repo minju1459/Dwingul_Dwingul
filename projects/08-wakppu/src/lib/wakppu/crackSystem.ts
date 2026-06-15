@@ -88,21 +88,28 @@ export function updateCrackField(field: CrackField, dt: number) {
   }
 }
 
+/**
+ * 균열을 두 겹으로 그려서 "갈라진 틈으로 안쪽 색이 새어 나오는" 효과.
+ * 1) 어두운 그림자(균열 깊이감)
+ * 2) 그 위에 살짝 가는 innerColor 라인 (슬라임이 비치는 갭)
+ */
 export function drawCracks(
   ctx: CanvasRenderingContext2D,
   field: CrackField,
   cx: number,
   cy: number,
-  color: string,
+  innerColor: string,
 ) {
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.strokeStyle = color;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
+
+  // 1) 외곽 그림자
+  ctx.strokeStyle = "rgba(0,0,0,0.55)";
   for (const l of field.lines) {
     const cut = Math.max(2, Math.floor(l.points.length * l.reveal));
-    ctx.lineWidth = l.width;
+    ctx.lineWidth = l.width + 1.6;
     ctx.beginPath();
     for (let i = 0; i < cut; i++) {
       const p = l.points[i];
@@ -111,6 +118,21 @@ export function drawCracks(
     }
     ctx.stroke();
   }
+
+  // 2) 안쪽 색이 갈라진 틈으로 비침
+  ctx.strokeStyle = innerColor;
+  for (const l of field.lines) {
+    const cut = Math.max(2, Math.floor(l.points.length * l.reveal));
+    ctx.lineWidth = l.width * 0.85;
+    ctx.beginPath();
+    for (let i = 0; i < cut; i++) {
+      const p = l.points[i];
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+  }
+
   ctx.restore();
 }
 
