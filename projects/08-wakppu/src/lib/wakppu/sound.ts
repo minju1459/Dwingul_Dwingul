@@ -233,6 +233,28 @@ export function ensureAudio() {
   return ctx;
 }
 
+/**
+ * iOS / 모바일 Safari 등 user-gesture 가 필수인 환경에서 AudioContext
+ * 가 실제로 running 상태로 들어갈 때까지 await. pointerdown 핸들러에서
+ * 사운드 재생 전에 한 번 호출.
+ */
+export async function ensureAudioRunning(): Promise<AudioContext | null> {
+  const c = ensureAudio();
+  if (!c) return null;
+  if (c.state === "suspended") {
+    try {
+      await c.resume();
+    } catch {}
+  }
+  // 디코드도 완료될 때까지 기다림 — 처음 누름에 mp3 가 바로 깔리도록
+  if (sustainedPath && !sustainedBuffer) {
+    try {
+      await loadSustainedBuffer(c);
+    } catch {}
+  }
+  return c;
+}
+
 function rand(a: number, b: number) {
   return a + Math.random() * (b - a);
 }

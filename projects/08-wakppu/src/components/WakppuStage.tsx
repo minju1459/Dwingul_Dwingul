@@ -10,6 +10,7 @@ import { VARIANTS } from "@/lib/wakppu/variants";
 import type { WakppuVariant, CrackStage } from "@/lib/wakppu/types";
 import {
   ensureAudio,
+  ensureAudioRunning,
   playJingle,
   playReassemble,
   startCrackle,
@@ -142,7 +143,6 @@ export default function WakppuStage() {
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      ensureAudio();
       const target = e.currentTarget as HTMLDivElement;
       const rect = target.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -153,17 +153,17 @@ export default function WakppuStage() {
 
       const curStage = handle.getStage();
       if (curStage >= 5) {
-        // 완파 후 — 슬라임만 드래그로 늘이기
         draggingRef.current = true;
         return;
       }
 
-      // 짓누르기 시작
+      // user-gesture 안에서 ctx.resume + sustained.mp3 디코드를 await.
+      // iOS/모바일 Safari 의 자동재생 제한 우회 + 첫 누름에 mp3 가 바로 깔림.
       target.setPointerCapture?.(e.pointerId);
       handle.pressStart(x, y);
-      // 첫 단계로 진입 — sustained 톤 시작 (toneHint, stage 0+1=1)
       const startStage = Math.max(1, curStage + 1) as CrackStage;
-      startCrackle(startStage, variantRef.current.toneHint);
+      const toneHint = variantRef.current.toneHint;
+      void ensureAudioRunning().then(() => startCrackle(startStage, toneHint));
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
         navigator.vibrate(10);
       }
