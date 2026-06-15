@@ -6,23 +6,27 @@ import VariantPicker from "./VariantPicker";
 import CustomMaker from "./CustomMaker";
 import RebuildButton from "./RebuildButton";
 import Stats from "./Stats";
-import { VARIANTS, makeCustomVariant } from "@/lib/wakppu/variants";
+import { VARIANTS } from "@/lib/wakppu/variants";
 import type { WakppuVariant, CrackStage } from "@/lib/wakppu/types";
-import { ensureAudio, playCrack, playJingle, playReassemble } from "@/lib/wakppu/sound";
+import {
+  ensureAudio,
+  playJingle,
+  playReassemble,
+  startCrackle,
+  stopCrackle,
+  playMicroPop,
+} from "@/lib/wakppu/sound";
 
 const STORAGE_KEY = "wakppu:stats:v1";
-const STREAK_WINDOW_MS = 1400; // 마지막 부순 이후 이 시간 안에 또 부수면 streak ++
+const STREAK_WINDOW_MS = 1400;
 
-type StoredStats = {
-  total: number;
-};
+type StoredStats = { total: number };
 
 function loadStats(): StoredStats {
   if (typeof window === "undefined") return { total: 0 };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { total: 0 };
-    return JSON.parse(raw);
+    return raw ? JSON.parse(raw) : { total: 0 };
   } catch {
     return { total: 0 };
   }
@@ -34,7 +38,6 @@ function saveStats(s: StoredStats) {
   } catch {}
 }
 
-// 황금 왁뿌 — 100번째 마다 1회 등장
 const RARE_GOLDEN: WakppuVariant = {
   id: "rare-golden",
   name: "황금 왁뿌 ✨",
@@ -56,8 +59,13 @@ export default function WakppuStage() {
   const handleRef = useRef<WakppuCanvasHandle | null>(null);
   const lastBreakAtRef = useRef(0);
   const draggingRef = useRef(false);
+  const pressRafRef = useRef(0);
+  const lastTickRef = useRef(0);
+  const variantRef = useRef(variant);
+  variantRef.current = variant;
+  const stageRef = useRef<CrackStage>(stage);
+  stageRef.current = stage;
 
-  // 초기 로드
   useEffect(() => {
     const s = loadStats();
     setTotal(s.total);
@@ -71,10 +79,8 @@ export default function WakppuStage() {
     setTotal((prev) => {
       const next = prev + 1;
       saveStats({ total: next });
-      // 100번째 = 직전이 99 → 다음 부숨이 100. 부순 직후 100번째라면 다음 라운드에 rare 등장.
       return next;
     });
-    // streak
     const now = performance.now();
     if (now - lastBreakAtRef.current < STREAK_WINDOW_MS) {
       setStreak((s) => s + 1);
@@ -84,59 +90,92 @@ export default function WakppuStage() {
     lastBreakAtRef.current = now;
     setShake("strong");
     setTimeout(() => setShake("none"), 420);
+    stopCrackle();
     playJingle();
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-      navigator.vibrate(30);
+      navigator.vibrate([12, 30, 60]);
     }
   }, []);
 
-  // 클릭/탭 처리
+  // 짓누름 루프 — pointerdown 시작 후 rAF 로 dt 단위 진행
+  const stopPressLoop = useCallback(() => {
+    if (pressRafRef.current) {
+      cancelAnimationFrame(pressRafRef.current);
+      pressRafRef.current = 0;
+    }
+    stopCrackle();
+    handleRef.current?.pressStop();
+  }, []);
+
+  const startPressLoop = useCallback(() => {
+    lastTickRef.current = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min(now - lastTickRef.current, 50);
+      lastTickRef.current = now;
+      const handle = handleRef.current;
+      if (!handle) return;
+      const result = handle.pressTick(dt);
+      if (result.advancedTo !== null) {
+        // 단계 진행 임팩트 — 짧은 흔들림 + 추가 micro-pop
+        setShake("soft");
+        setTimeout(() => setShake("none"), 200);
+        playMicroPop(result.advancedTo, variantRef.current.toneHint, 1.1);
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+          navigator.vibrate(12);
+        }
+        // 사운드 강도/단계 업데이트
+        if (result.advancedTo < 5) {
+          startCrackle(result.advancedTo, variantRef.current.toneHint);
+        }
+      }
+      if (handle.getStage() >= 5) {
+        stopPressLoop();
+        return;
+      }
+      pressRafRef.current = requestAnimationFrame(step);
+    };
+    pressRafRef.current = requestAnimationFrame(step);
+  }, [stopPressLoop]);
+
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       ensureAudio();
-      const canvas = e.currentTarget as HTMLDivElement;
-      const rect = canvas.getBoundingClientRect();
+      const target = e.currentTarget as HTMLDivElement;
+      const rect = target.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       const handle = handleRef.current;
       if (!handle) return;
       if (!handle.isHit(x, y)) return;
 
-      // 슬라임 노출 후엔 드래그로 늘이기, 아니면 부수기
       const curStage = handle.getStage();
-      if (curStage >= 4 && curStage < 5) {
-        draggingRef.current = true;
-        return;
-      }
-      if (curStage === 5) {
-        // 슬라임만 흔들기 (드래그)
+      if (curStage >= 5) {
+        // 완파 후 — 슬라임만 드래그로 늘이기
         draggingRef.current = true;
         return;
       }
 
-      // 한 번 부수기
-      const next = handle.hitAt(x, y);
-      playCrack(next, variant.toneHint);
-
-      // 소프트 진동 + 화면 흔들림
-      if (next < 5) {
-        setShake("soft");
-        setTimeout(() => setShake("none"), 220);
-        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-          navigator.vibrate(12);
-        }
+      // 짓누르기 시작
+      target.setPointerCapture?.(e.pointerId);
+      handle.pressStart(x, y);
+      // 첫 단계로 진입 — sustained 톤 시작 (toneHint, stage 0+1=1)
+      const startStage = Math.max(1, curStage + 1) as CrackStage;
+      startCrackle(startStage, variantRef.current.toneHint);
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate(10);
       }
+      startPressLoop();
       if (titleVisible) setTitleVisible(false);
     },
-    [variant, titleVisible],
+    [titleVisible, startPressLoop],
   );
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!draggingRef.current) return;
     const handle = handleRef.current;
     if (!handle) return;
-    const canvas = e.currentTarget as HTMLDivElement;
-    const rect = canvas.getBoundingClientRect();
+    const target = e.currentTarget as HTMLDivElement;
+    const rect = target.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const local = handle.toLocal(x, y);
@@ -144,27 +183,28 @@ export default function WakppuStage() {
   }, []);
 
   const onPointerEnd = useCallback(() => {
-    if (!draggingRef.current) return;
-    draggingRef.current = false;
-    handleRef.current?.releaseDrag();
-  }, []);
+    if (draggingRef.current) {
+      draggingRef.current = false;
+      handleRef.current?.releaseDrag();
+    }
+    stopPressLoop();
+  }, [stopPressLoop]);
 
   const onSelectVariant = useCallback((v: WakppuVariant) => {
     setVariant(v);
     setRareActive(false);
     handleRef.current?.rebuild();
     setTitleVisible(true);
-  }, []);
+    stopPressLoop();
+  }, [stopPressLoop]);
 
   const onRebuild = useCallback(() => {
     handleRef.current?.rebuild();
     playReassemble();
-    // 100번째 직후 다음 사이클이면 rare 등장
     if (total > 0 && total % 100 === 0 && !rareActive) {
       setRareActive(true);
       setVariant(RARE_GOLDEN);
     } else if (rareActive) {
-      // rare 한 번 부순 뒤 원래 variant 로 복귀(이미 등록되어 있던 선택 유지 못 하므로 도넛으로)
       setRareActive(false);
       setVariant(VARIANTS[0]);
     }
@@ -177,6 +217,10 @@ export default function WakppuStage() {
     setTitleVisible(true);
   }, []);
 
+  useEffect(() => {
+    return () => stopPressLoop();
+  }, [stopPressLoop]);
+
   const shakeClass =
     shake === "strong" ? "stage-shake-strong" : shake === "soft" ? "stage-shake" : "";
 
@@ -187,7 +231,6 @@ export default function WakppuStage() {
     >
       <div className="stage-light" />
 
-      {/* 상단 타이틀 */}
       <div className="absolute top-6 sm:top-10 left-1/2 -translate-x-1/2 z-10 text-center px-6 pointer-events-none">
         <h1
           className="fade-up text-[15px] sm:text-[16px] tracking-[0.42em] font-medium text-white/85"
@@ -201,11 +244,10 @@ export default function WakppuStage() {
           }`}
           style={{ animationDelay: "0.18s" }}
         >
-          {rareActive ? "💛 황금 왁뿌가 등장했어요" : "눌러서 부숴보세요"}
+          {rareActive ? "💛 황금 왁뿌가 등장했어요" : "꾹 눌러서 부숴보세요"}
         </p>
       </div>
 
-      {/* 스테이지: 캔버스 + 인터랙션 영역 */}
       <div
         className={`absolute inset-0 z-10 ${shakeClass}`}
         onPointerDown={onPointerDown}
@@ -231,7 +273,6 @@ export default function WakppuStage() {
         rare={rareActive}
       />
 
-      {/* 하단 픽커 */}
       <div className="absolute left-1/2 -translate-x-1/2 bottom-7 sm:bottom-10 z-20 fade-up">
         <VariantPicker
           current={variant}
@@ -240,7 +281,6 @@ export default function WakppuStage() {
         />
       </div>
 
-      {/* 커스텀 메이커 모달 */}
       <CustomMaker
         visible={showCustom}
         onClose={() => setShowCustom(false)}

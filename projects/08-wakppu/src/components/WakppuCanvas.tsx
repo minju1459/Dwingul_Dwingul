@@ -18,22 +18,28 @@ import {
   clearShards,
 } from "@/lib/wakppu/shardSystem";
 import { drawShell, drawSlime } from "@/lib/wakppu/wakppuRenderer";
-import { withAlpha } from "@/lib/wakppu/variants";
 
 export type WakppuCanvasHandle = {
-  /** 클릭 위치(캔버스 좌표)에서 한 단계 부수기. 반환: 새 stage. */
-  hitAt: (x: number, y: number) => CrackStage;
-  /** 모두 원래대로 복구. */
-  rebuild: () => void;
-  /** 드래그 변위(슬라임 늘이기). */
-  setDrag: (dx: number, dy: number) => void;
-  releaseDrag: () => void;
   /** 캔버스 좌표 → 왁뿌 중심 기준 로컬 좌표. */
   toLocal: (x: number, y: number) => { x: number; y: number };
-  /** 현재 stage. */
-  getStage: () => CrackStage;
   /** 본체와 충돌하는지(반경 안). */
   isHit: (x: number, y: number) => boolean;
+  /** 짓누르기 시작 — 누른 좌표 기억. */
+  pressStart: (x: number, y: number) => void;
+  /**
+   * 짓누르기 진행 — dt 만큼 누른 상태가 지속됨.
+   * 임계 progress 마다 다음 stage 로 자동 진행하고, 진행 직후 true 반환.
+   */
+  pressTick: (dt: number) => { advancedTo: CrackStage | null; progress: number };
+  /** 짓누르기 종료. */
+  pressStop: () => void;
+  /** 모두 원래대로 복구. */
+  rebuild: () => void;
+  /** 슬라임 드래그 변위. */
+  setDrag: (dx: number, dy: number) => void;
+  releaseDrag: () => void;
+  /** 현재 stage. */
+  getStage: () => CrackStage;
 };
 
 type Props = {
@@ -42,6 +48,9 @@ type Props = {
   onBreak: () => void;
   handleRef: React.MutableRefObject<WakppuCanvasHandle | null>;
 };
+
+// 다음 stage 로 넘어가기까지 짓눌러야 하는 시간(ms). 짧을수록 빨리 부숴짐.
+const PROGRESS_PER_STAGE = 380;
 
 export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRef }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -54,12 +63,18 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
   const shardRef = useRef(makeShardField());
   const squashRef = useRef({ x: 1, y: 1 });
   const slimePhaseRef = useRef(0);
-  const slimeExposureRef = useRef(0); // 0~1, stage>=4 면 1로 보간
-  const brokenRef = useRef(0); // 0~1, 겉면이 깎인 정도
-  const rebuildRef = useRef(0); // 0~1, 0 정상 / 1 완전 복구 진행중
+  const slimeExposureRef = useRef(0);
+  const brokenRef = useRef(0);
+  const rebuildRef = useRef(0);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
   const radiusRef = useRef(140);
   const centerRef = useRef({ x: 0, y: 0 });
+
+  // 짓누름 상태
+  const pressActiveRef = useRef(false);
+  const pressOriginRef = useRef({ x: 0, y: 0 });
+  const pressProgressRef = useRef(0); // 0~1, 1 도달 시 단계 진행
+  const microCrackTimerRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -99,38 +114,53 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
 
       ctx!.clearRect(0, 0, w, h);
 
-      // 슬라임 노출 보간
-      const targetExp =
-        rebuildRef.current > 0 ? 0 : stageRef.current >= 4 ? 1 : stageRef.current === 3 ? 0.18 : 0;
-      slimeExposureRef.current += (targetExp - slimeExposureRef.current) * 0.16;
+      // 슬라임 노출 — 누를수록 안쪽이 점점 비치게 (균열 갭 사이로 안쪽 색이
+      // 면적으로 보이도록 단계별 노출량을 더 키움)
+      const EXP_BY_STAGE = [0, 0.28, 0.48, 0.65, 0.85, 1];
+      const baseExp =
+        rebuildRef.current > 0 ? 0 : EXP_BY_STAGE[Math.min(5, stageRef.current)];
+      // 짓누르는 중에는 보간 시 단계 사이 분위기를 더 빨리 끌어올림
+      const liveExp = pressActiveRef.current
+        ? baseExp +
+          (EXP_BY_STAGE[Math.min(5, stageRef.current + 1)] - baseExp) *
+            pressProgressRef.current *
+            0.7
+        : baseExp;
+      slimeExposureRef.current += (liveExp - slimeExposureRef.current) * 0.18;
 
-      // squash 복귀
-      squashRef.current.x += (1 - squashRef.current.x) * 0.18;
-      squashRef.current.y += (1 - squashRef.current.y) * 0.18;
+      // 짓누르는 동안 살짝 squash 유지, 떼면 spring 복귀
+      const targetSx = pressActiveRef.current ? 0.95 - pressProgressRef.current * 0.04 : 1;
+      const targetSy = pressActiveRef.current ? 1.05 + pressProgressRef.current * 0.04 : 1;
+      squashRef.current.x += (targetSx - squashRef.current.x) * 0.2;
+      squashRef.current.y += (targetSy - squashRef.current.y) * 0.2;
       slimePhaseRef.current += dt * 0.0025;
 
-      // 균열 reveal 보간
+      // 균열 보간
       updateCrackField(crackRef.current, dt);
+
+      // broken 점진 — 짓누르는 동안 stage 기반 + 라이브 진행 가산
+      const baseBroken = Math.min(1, stageRef.current / 5);
+      const liveBroken = pressActiveRef.current
+        ? Math.min(1, baseBroken + pressProgressRef.current / 5)
+        : baseBroken;
+      brokenRef.current += (liveBroken - brokenRef.current) * 0.18;
+
       // 파편/먼지 업데이트
       updateShardField(shardRef.current, dt);
 
-      // 다시 만들기 중이면 파편 → 중심으로, crack reveal 0 으로 다시
+      // 다시 만들기 중이면 파편 → 중심, crack reveal 줄어듦
       if (rebuildRef.current > 0) {
         const k = Math.min(1, dt / 16.67) * 0.13;
         for (const s of shardRef.current.shards) {
           s.vx *= 0.86;
           s.vy *= 0.86;
-          // 중심(cx,cy) 좌표는 캔버스 기준이지만 shard 의 x,y 는 중심 기준 로컬이므로 0 으로 끌어당김
           s.x += (0 - s.x) * k;
           s.y += (0 - s.y) * k;
           s.life = Math.max(0, s.life - dt * 1.3);
         }
-        for (const d of shardRef.current.dust) d.life = Math.min(d.maxLife, d.life + dt * 2);
-
         for (const l of crackRef.current.lines) l.reveal = Math.max(0, l.reveal - dt * 0.004);
         brokenRef.current = Math.max(0, brokenRef.current - dt * 0.0012);
         rebuildRef.current = Math.max(0, rebuildRef.current - dt / 800);
-
         if (rebuildRef.current <= 0) {
           clearShards(shardRef.current);
           clearField(crackRef.current);
@@ -141,7 +171,7 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
       }
 
       // ── 그리기 ─────────────────────────────────────────────────────────
-      // 1. 부드러운 그림자 (왁뿌 아래)
+      // 1. 그림자
       ctx!.save();
       ctx!.translate(cx, cy + R * 0.78);
       ctx!.fillStyle = "rgba(0,0,0,0.55)";
@@ -152,7 +182,7 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
       ctx!.filter = "none";
       ctx!.restore();
 
-      // 2. 슬라임 (겉면 뒤에)
+      // 2. 슬라임 (겉면 뒤)
       ctx!.save();
       ctx!.translate(cx, cy);
       drawSlime(
@@ -160,7 +190,11 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
         variantRef.current.shell,
         R,
         slimeExposureRef.current,
-        { squashX: squashRef.current.x, squashY: squashRef.current.y, slimePhase: slimePhaseRef.current },
+        {
+          squashX: squashRef.current.x,
+          squashY: squashRef.current.y,
+          slimePhase: slimePhaseRef.current,
+        },
         dragRef.current,
       );
       ctx!.restore();
@@ -173,15 +207,19 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
         variantRef.current.shell,
         R,
         brokenRef.current,
-        { squashX: squashRef.current.x, squashY: squashRef.current.y, slimePhase: slimePhaseRef.current },
+        {
+          squashX: squashRef.current.x,
+          squashY: squashRef.current.y,
+          slimePhase: slimePhaseRef.current,
+        },
       );
       ctx!.restore();
 
-      // 4. 균열 (겉면 위에)
-      const crackColor = withAlpha("#000000", 0.55);
-      drawCracks(ctx!, crackRef.current, cx, cy, crackColor);
+      // 4. 균열 (겉면 위, 안쪽 색이 비치도록)
+      const innerColor = getInnerColor(variantRef.current);
+      drawCracks(ctx!, crackRef.current, cx, cy, innerColor);
 
-      // 5. 파편/먼지 (왁뿌 영역 밖)
+      // 5. 파편/먼지
       drawShards(ctx!, shardRef.current, cx, cy);
 
       rafId = requestAnimationFrame(frame);
@@ -194,43 +232,87 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
     };
   }, [onStageChange]);
 
-  // handle 노출
   useEffect(() => {
     handleRef.current = {
-      hitAt: (x, y) => {
-        const local = {
+      toLocal: (x, y) => ({
+        x: x - centerRef.current.x,
+        y: y - centerRef.current.y,
+      }),
+      isHit: (x, y) => {
+        const dx = x - centerRef.current.x;
+        const dy = y - centerRef.current.y;
+        return Math.hypot(dx, dy) <= radiusRef.current * 1.05;
+      },
+      pressStart: (x, y) => {
+        pressActiveRef.current = true;
+        pressProgressRef.current = 0;
+        microCrackTimerRef.current = 0;
+        pressOriginRef.current = {
           x: x - centerRef.current.x,
           y: y - centerRef.current.y,
         };
-        // 다음 stage
-        const next = Math.min(5, stageRef.current + 1) as CrackStage;
-        stageRef.current = next;
-        squashRef.current.x = 0.94;
-        squashRef.current.y = 1.06;
-
-        // 단계별 효과
-        const R = radiusRef.current;
-        spawnCrack(crackRef.current, local, next, R);
-
-        // 파편
-        const palette = palette4(variantRef.current);
-        const power = 0.6 + next * 0.18;
-        if (next >= 3) spawnShards(shardRef.current, local, 12 + next * 4, palette, power);
-        if (next >= 2) spawnDust(shardRef.current, local, 6 + next * 3);
-
-        if (next === 5) {
-          brokenRef.current = 1;
-          spawnShards(shardRef.current, { x: 0, y: 0 }, 36, palette, 1.4);
-          spawnDust(shardRef.current, { x: 0, y: 0 }, 22);
-          onBreak();
-        } else {
-          brokenRef.current = Math.min(0.85, brokenRef.current + 0.16 + next * 0.05);
+      },
+      pressTick: (dt) => {
+        if (!pressActiveRef.current || stageRef.current >= 5) {
+          return { advancedTo: null, progress: pressProgressRef.current };
         }
-        onStageChange(next);
-        return next;
+        pressProgressRef.current = Math.min(
+          1,
+          pressProgressRef.current + dt / PROGRESS_PER_STAGE,
+        );
+
+        // 짓누르는 동안 작은 균열을 점진적으로 추가 — "균열이 자라는" 효과
+        microCrackTimerRef.current += dt;
+        const microGap = 95; // ms
+        while (microCrackTimerRef.current >= microGap) {
+          microCrackTimerRef.current -= microGap;
+          const jitter = 18 + Math.random() * 24;
+          const ang = Math.random() * Math.PI * 2;
+          const origin = {
+            x: pressOriginRef.current.x + Math.cos(ang) * jitter,
+            y: pressOriginRef.current.y + Math.sin(ang) * jitter,
+          };
+          // 짧은 한 가닥
+          spawnCrack(
+            crackRef.current,
+            origin,
+            Math.max(1, stageRef.current),
+            radiusRef.current,
+          );
+        }
+
+        if (pressProgressRef.current >= 1) {
+          const next = Math.min(5, stageRef.current + 1) as CrackStage;
+          stageRef.current = next;
+          pressProgressRef.current = 0;
+          // 단계 진행 — 추가 크랙 + 파편
+          const local = pressOriginRef.current;
+          const R = radiusRef.current;
+          spawnCrack(crackRef.current, local, next, R);
+          const palette = palette4(variantRef.current);
+          const power = 0.6 + next * 0.2;
+          if (next >= 3) spawnShards(shardRef.current, local, 10 + next * 4, palette, power);
+          if (next >= 2) spawnDust(shardRef.current, local, 6 + next * 3);
+          if (next === 5) {
+            spawnShards(shardRef.current, { x: 0, y: 0 }, 36, palette, 1.4);
+            spawnDust(shardRef.current, { x: 0, y: 0 }, 22);
+            pressActiveRef.current = false;
+            onBreak();
+          }
+          onStageChange(next);
+          return { advancedTo: next, progress: 0 };
+        }
+        return { advancedTo: null, progress: pressProgressRef.current };
+      },
+      pressStop: () => {
+        pressActiveRef.current = false;
+        pressProgressRef.current = 0;
+        microCrackTimerRef.current = 0;
       },
       rebuild: () => {
         rebuildRef.current = 1;
+        pressActiveRef.current = false;
+        pressProgressRef.current = 0;
       },
       setDrag: (dx, dy) => {
         dragRef.current = { x: dx, y: dy };
@@ -238,16 +320,7 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
       releaseDrag: () => {
         dragRef.current = null;
       },
-      toLocal: (x, y) => ({
-        x: x - centerRef.current.x,
-        y: y - centerRef.current.y,
-      }),
       getStage: () => stageRef.current,
-      isHit: (x, y) => {
-        const dx = x - centerRef.current.x;
-        const dy = y - centerRef.current.y;
-        return Math.hypot(dx, dy) <= radiusRef.current * 1.05;
-      },
     };
     return () => {
       handleRef.current = null;
@@ -261,6 +334,11 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
       aria-hidden
     />
   );
+}
+
+function getInnerColor(v: WakppuVariant): string {
+  if (v.shell.kind === "donut") return v.shell.innerColors[0] ?? "#ffffff";
+  return v.shell.innerColor;
 }
 
 function palette4(v: WakppuVariant): string[] {
