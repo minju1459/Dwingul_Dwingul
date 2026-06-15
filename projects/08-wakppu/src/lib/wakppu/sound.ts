@@ -95,7 +95,13 @@ const SUSTAINED_PATH = "/sfx/sustained.mp3";
 let availableSamples: string[] = [];
 let sustainedPath: string | null = null;
 let assetsChecked = false;
-let sustainedAudio: HTMLAudioElement | null = null;
+
+// sustained 는 첫 1초만 잘라서 loop. AudioBuffer 디코드 한 번만.
+const SUSTAINED_LOOP_SECONDS = 1.0;
+let sustainedBuffer: AudioBuffer | null = null;
+let sustainedLoading: Promise<AudioBuffer | null> | null = null;
+let sustainedNode: AudioBufferSourceNode | null = null;
+let sustainedGain: GainNode | null = null;
 
 async function checkAssets() {
   if (assetsChecked) return;
@@ -111,7 +117,11 @@ async function checkAssets() {
   availableSamples = checks.filter((p): p is string => p !== null);
   try {
     const r = await fetch(SUSTAINED_PATH, { method: "HEAD" });
-    if (r.ok) sustainedPath = SUSTAINED_PATH;
+    if (r.ok) {
+      sustainedPath = SUSTAINED_PATH;
+      // 미리 디코드해 두면 첫 startCrackle 호출에서 바로 사용 가능
+      if (ctx) void loadSustainedBuffer(ctx);
+    }
   } catch {}
 }
 
@@ -127,36 +137,83 @@ function playSample(volume = 1): boolean {
   return true;
 }
 
+async function loadSustainedBuffer(c: AudioContext): Promise<AudioBuffer | null> {
+  if (sustainedBuffer) return sustainedBuffer;
+  if (sustainedLoading) return sustainedLoading;
+  if (!sustainedPath) return null;
+  sustainedLoading = (async () => {
+    try {
+      const r = await fetch(sustainedPath!);
+      if (!r.ok) return null;
+      const arr = await r.arrayBuffer();
+      const buf = await c.decodeAudioData(arr);
+      sustainedBuffer = buf;
+      return buf;
+    } catch {
+      return null;
+    }
+  })();
+  return sustainedLoading;
+}
+
 function startSustainedAudio(volume = 1): boolean {
-  if (!sustainedPath) return false;
-  if (sustainedAudio) {
-    sustainedAudio.volume = volume;
+  const c = ctx;
+  const mg = masterGain;
+  if (!c || !mg) return false;
+  if (!sustainedPath && !sustainedBuffer) return false;
+
+  // 이미 재생 중이면 볼륨만 따라가기
+  if (sustainedNode && sustainedGain) {
+    sustainedGain.gain.cancelScheduledValues(c.currentTime);
+    sustainedGain.gain.linearRampToValueAtTime(volume, c.currentTime + 0.05);
     return true;
   }
-  const a = new Audio(sustainedPath);
-  a.loop = true;
-  a.volume = volume;
-  void a.play().catch(() => {});
-  sustainedAudio = a;
+
+  // 아직 decode 안 됐으면 비동기로 시작 — 이번 호출은 false 반환해서 합성으로 잠깐 fallback
+  if (!sustainedBuffer) {
+    void loadSustainedBuffer(c).then((buf) => {
+      if (buf && !sustainedNode) {
+        // 디코드 완료 직후 자동 시작 (사용자가 아직 누르고 있으면)
+        // -- 정책상 여기서는 시작하지 않음. 다음 startCrackle 호출 때 잡힘.
+      }
+    });
+    return false;
+  }
+
+  const src = c.createBufferSource();
+  src.buffer = sustainedBuffer;
+  src.loop = true;
+  src.loopStart = 0;
+  // 파일이 1초보다 짧으면 전체를 loop, 길면 첫 1초만
+  src.loopEnd = Math.min(SUSTAINED_LOOP_SECONDS, sustainedBuffer.duration);
+
+  const g = c.createGain();
+  g.gain.setValueAtTime(0, c.currentTime);
+  g.gain.linearRampToValueAtTime(volume, c.currentTime + 0.04);
+
+  src.connect(g);
+  g.connect(mg);
+  src.start(0);
+
+  sustainedNode = src;
+  sustainedGain = g;
   return true;
 }
 
 function stopSustainedAudio() {
-  if (!sustainedAudio) return;
-  const a = sustainedAudio;
-  // 짧은 fade out
-  const start = a.volume;
-  const steps = 8;
-  let i = 0;
-  const id = window.setInterval(() => {
-    i++;
-    a.volume = Math.max(0, start * (1 - i / steps));
-    if (i >= steps) {
-      a.pause();
-      window.clearInterval(id);
-    }
-  }, 22);
-  sustainedAudio = null;
+  const c = ctx;
+  if (!c || !sustainedNode || !sustainedGain) return;
+  const node = sustainedNode;
+  const g = sustainedGain;
+  const now = c.currentTime;
+  g.gain.cancelScheduledValues(now);
+  g.gain.setValueAtTime(g.gain.value, now);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+  try {
+    node.stop(now + 0.22);
+  } catch {}
+  sustainedNode = null;
+  sustainedGain = null;
 }
 
 export function ensureAudio() {
