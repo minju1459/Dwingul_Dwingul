@@ -14,7 +14,7 @@
 
 5단계 균열:
 ```
-idle → 작은 균열 → 균열 확대 → 파편 일부 → 슬라임 노출 → 완전 파괴
+idle → 작은 균열 → 균열 확대 → 파편 일부 → 슬라임 노출 → 완전 뿌신 왁뿌
                                                                 ↓
                                                        다시 만들기 (역 애니메이션)
 ```
@@ -43,6 +43,22 @@ idle → 작은 균열 → 균열 확대 → 파편 일부 → 슬라임 노출 
 
 mp3 로 교체하고 싶으면 `playCrack(stage, tone)` 시그니처 그대로 두고 내부만 갈아끼우면 됨.
 
+### 유튜브에서 받은 mp3 가져다 쓰기
+
+`public/sfx/` 폴더에 mp3 를 떨궈두면 합성 사운드 대신 그걸 우선 사용함.
+- `public/sfx/crack/crack-01.mp3 ~ crack-12.mp3` — 짧은 균열음 풀.
+  micro-pop 발생할 때마다 랜덤으로 한 개 골라 재생 (playbackRate 0.92~1.08
+  미세 jitter 로 자연스러움 추가).
+- `public/sfx/sustained.mp3` — 짓누르는 동안 loop 으로 깔리는 지속음.
+
+파일이 일부만 있어도 동작 (있는 것만 풀에 잡힘). 하나도 없으면 합성 톤으로
+fallback. 파일 추가 후 페이지 새로고침 한 번 필요.
+
+예) yt-dlp 로 받기:
+```bash
+yt-dlp -x --audio-format mp3 -o "public/sfx/sustained.%(ext)s" <youtube_url>
+```
+
 ## 진동 & 모바일
 
 - `navigator.vibrate(12)` 매 단계, `navigator.vibrate(30)` 완파
@@ -51,7 +67,7 @@ mp3 로 교체하고 싶으면 `playCrack(stage, tone)` 시그니처 그대로 �
 
 ## 이스터에그
 
-총 파괴 100 번째에 **황금 왁뿌**가 등장. 다시 만들기 누르면 노출.
+총 뿌신 왁뿌 100 번째에 **황금 왁뿌**가 등장. 다시 만들기 누르면 노출.
 localStorage 에 누적 카운트 저장.
 
 ## 실행
@@ -75,7 +91,7 @@ src/
     VariantPicker.tsx       3개 프리셋 + "+ 만들기" 버튼 하단 픽커
     CustomMaker.tsx         색상/모양/음색 골라서 내 왁뿌 만들기 모달
     RebuildButton.tsx       완파 후 등장, rare 모드시 골든 그라데이션
-    Stats.tsx               누적 파괴 / 연속 카운터
+    Stats.tsx               누적 뿌신 왁뿌 / 연속 카운터
   lib/wakppu/
     types.ts                WakppuVariant, CrackStage, ToneHint
     variants.ts             3개 프리셋 + makeCustomVariant + 색 유틸
