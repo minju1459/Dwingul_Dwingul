@@ -135,15 +135,33 @@ export function drawShards(
     ctx.translate(s.x, s.y);
     ctx.rotate(s.rot);
     ctx.globalAlpha = alpha;
+
+    // 1) 본체 채움
     ctx.fillStyle = s.color;
     ctx.beginPath();
     s.poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
     ctx.closePath();
     ctx.fill();
-    // 얇은 외곽선으로 입체감
-    ctx.strokeStyle = "rgba(0,0,0,0.18)";
-    ctx.lineWidth = 0.8;
+
+    // 2) 폴리곤 안에 광원 그라데이션 — 위 밝고 아래 어둡게 (입체감)
+    ctx.save();
+    ctx.clip();
+    const grad = ctx.createLinearGradient(0, -s.size, 0, s.size);
+    grad.addColorStop(0, "rgba(255,255,255,0.45)");
+    grad.addColorStop(0.45, "rgba(255,255,255,0)");
+    grad.addColorStop(1, "rgba(0,0,0,0.32)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(-s.size * 1.2, -s.size * 1.2, s.size * 2.4, s.size * 2.4);
+    ctx.restore();
+
+    // 3) 외곽선 — 약간 두껍게 어둡게 (깨진 면의 윤곽)
+    ctx.strokeStyle = "rgba(0,0,0,0.32)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    s.poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.closePath();
     ctx.stroke();
+
     ctx.restore();
   }
   ctx.globalAlpha = 1;
