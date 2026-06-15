@@ -81,6 +81,84 @@ type SustainHandles = {
 };
 let sustain: SustainHandles | null = null;
 
+// ─── 외부 오디오 파일 우선 사용 (유튜브에서 받은 mp3 등) ──────────────
+// public/sfx/crack/crack-01.mp3 ~ crack-NN.mp3 가 있으면 그걸 micro-pop 으로 재생.
+// public/sfx/sustained.mp3 가 있으면 그걸 sustained crackle 로 loop 재생.
+// 둘 다 없으면 아래의 합성 사운드(playMicroPop/startCrackle) 그대로 사용.
+
+const SAMPLE_PATHS = Array.from(
+  { length: 12 },
+  (_, i) => `/sfx/crack/crack-${String(i + 1).padStart(2, "0")}.mp3`,
+);
+const SUSTAINED_PATH = "/sfx/sustained.mp3";
+
+let availableSamples: string[] = [];
+let sustainedPath: string | null = null;
+let assetsChecked = false;
+let sustainedAudio: HTMLAudioElement | null = null;
+
+async function checkAssets() {
+  if (assetsChecked) return;
+  assetsChecked = true;
+  if (typeof window === "undefined") return;
+  const checks = await Promise.all(
+    SAMPLE_PATHS.map((p) =>
+      fetch(p, { method: "HEAD" })
+        .then((r) => (r.ok ? p : null))
+        .catch(() => null),
+    ),
+  );
+  availableSamples = checks.filter((p): p is string => p !== null);
+  try {
+    const r = await fetch(SUSTAINED_PATH, { method: "HEAD" });
+    if (r.ok) sustainedPath = SUSTAINED_PATH;
+  } catch {}
+}
+
+function playSample(volume = 1): boolean {
+  if (availableSamples.length === 0) return false;
+  const path =
+    availableSamples[Math.floor(Math.random() * availableSamples.length)];
+  const a = new Audio(path);
+  a.volume = Math.max(0, Math.min(1, volume));
+  // 자연스러운 다양성 위한 미세 pitch jitter
+  a.playbackRate = 0.92 + Math.random() * 0.16;
+  void a.play().catch(() => {});
+  return true;
+}
+
+function startSustainedAudio(volume = 1): boolean {
+  if (!sustainedPath) return false;
+  if (sustainedAudio) {
+    sustainedAudio.volume = volume;
+    return true;
+  }
+  const a = new Audio(sustainedPath);
+  a.loop = true;
+  a.volume = volume;
+  void a.play().catch(() => {});
+  sustainedAudio = a;
+  return true;
+}
+
+function stopSustainedAudio() {
+  if (!sustainedAudio) return;
+  const a = sustainedAudio;
+  // 짧은 fade out
+  const start = a.volume;
+  const steps = 8;
+  let i = 0;
+  const id = window.setInterval(() => {
+    i++;
+    a.volume = Math.max(0, start * (1 - i / steps));
+    if (i >= steps) {
+      a.pause();
+      window.clearInterval(id);
+    }
+  }, 22);
+  sustainedAudio = null;
+}
+
 export function ensureAudio() {
   if (typeof window === "undefined") return null;
   if (!ctx) {
@@ -94,6 +172,7 @@ export function ensureAudio() {
     masterGain.connect(ctx.destination);
   }
   if (ctx.state === "suspended") void ctx.resume();
+  void checkAssets();
   return ctx;
 }
 
@@ -126,6 +205,12 @@ export function startCrackle(stage: CrackStage, tone: ToneHint) {
   const mg = masterGain;
   if (!c || !mg) return;
   if (stage === 0) return;
+
+  // 외부 sustained.mp3 가 있으면 그걸 loop 로 우선 사용
+  if (startSustainedAudio(0.4 + stage * 0.08)) {
+    schedulePopLoop(stage, tone);
+    return;
+  }
 
   const base = HINT_BASE[tone];
   const mul = STAGE_MUL[stage];
@@ -203,6 +288,8 @@ function schedulePopLoop(stage: CrackStage, tone: ToneHint) {
  * 짓누르기 종료 — 지속 톤 fade out.
  */
 export function stopCrackle() {
+  // sustained mp3 가 켜져있으면 그걸 먼저 끔
+  stopSustainedAudio();
   const c = ctx;
   const s = sustain;
   if (!c || !s) return;
@@ -224,6 +311,10 @@ export function playMicroPop(stage: CrackStage, tone: ToneHint, scale = 1) {
   const mg = masterGain;
   if (!c || !mg) return;
   if (stage === 0) return;
+
+  // 외부 crack-NN.mp3 풀이 있으면 그 중 랜덤 재생
+  const sampleVol = Math.min(1, 0.5 + stage * 0.1) * scale;
+  if (playSample(sampleVol)) return;
 
   const base = HINT_BASE[tone];
   const mul = STAGE_MUL[stage];
