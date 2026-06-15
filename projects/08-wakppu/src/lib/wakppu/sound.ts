@@ -258,18 +258,19 @@ function makeLoopNoiseBuffer(seconds: number) {
  * 이미 켜져있으면 stage/tone 만 갱신.
  */
 /**
- * 사용자가 mp3 자산을 하나라도 넣어둔 상태인지.
+ * mp3 자산 모드 — 이 프로젝트는 사용자가 직접 넣은 mp3 만 사용하고
+ * 합성 톤은 어떤 경로로도 들리지 않게 영구 비활성화한다.
  *
- * checkAssets() 가 async 라서 첫 호출 시점에는 sustainedPath 가 아직
- * null 이지만 mp3 파일은 디스크에 있을 가능성이 있음. 그래서 자산
- * 체크가 끝나기 전(!assetsChecked) 에는 보수적으로 true 를 돌려줘
- * 합성 fallback 을 끄고 mp3 디코드 완료까지 무음으로 기다리게 함.
+ * 처음에 합성 sustain/micro-pop/jingle/reassemble 톤이 잠깐이라도
+ * 새어 나오는 것을 사용자가 원치 않음 → hasUserAudio() 가 항상
+ * true 를 반환하도록 강제. mp3 가 아직 디코드 전이면 그 누름은
+ * 그냥 무음으로 패스 (다음 사이클부터 mp3 재생).
  *
- * 자산 체크가 끝나서 정말로 자산이 하나도 없다고 확인된 경우에만 false.
+ * 합성 코드는 dead code 가 되지만 미래 환경(mp3 없이 합성만 쓰고
+ * 싶은 경우) 을 위해 그대로 보존.
  */
 function hasUserAudio(): boolean {
-  if (!assetsChecked) return true;
-  return sustainedPath !== null || availableSamples.length > 0;
+  return true;
 }
 
 export function startCrackle(stage: CrackStage, tone: ToneHint) {

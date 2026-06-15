@@ -69,6 +69,9 @@ export default function WakppuStage() {
   useEffect(() => {
     const s = loadStats();
     setTotal(s.total);
+    // 페이지 진입 즉시 자산 체크 + sustained.mp3 디코드를 백그라운드로
+    // 트리거. 첫 누름까지 디코드 끝나 있을 가능성을 높임.
+    ensureAudio();
   }, []);
 
   const handleStageChange = useCallback((s: CrackStage) => {
