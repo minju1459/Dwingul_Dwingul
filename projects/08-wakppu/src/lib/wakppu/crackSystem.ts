@@ -72,7 +72,8 @@ function growCrack(
   }
   return {
     points,
-    width: 0.9 + Math.random() * (0.6 + stage * 0.25),
+    // 두께를 키워서 갭 사이로 안쪽 색이 면적으로 보이게 함
+    width: 2.2 + Math.random() * (1.4 + stage * 0.8),
     reveal: 0,
     seed: Math.random() * 1000,
   };
@@ -105,8 +106,8 @@ export function drawCracks(
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  // 1) 외곽 그림자
-  ctx.strokeStyle = "rgba(0,0,0,0.55)";
+  // 1) 외곽 그림자 — 갈라진 틈의 깊이감
+  ctx.strokeStyle = "rgba(0,0,0,0.7)";
   for (const l of field.lines) {
     const cut = Math.max(2, Math.floor(l.points.length * l.reveal));
     ctx.lineWidth = l.width + 1.6;
@@ -119,11 +120,11 @@ export function drawCracks(
     ctx.stroke();
   }
 
-  // 2) 안쪽 색이 갈라진 틈으로 비침
+  // 2) 안쪽 색이 갈라진 갭의 면적으로 새어 나옴 — 두께를 키워서 면처럼 보이게
   ctx.strokeStyle = innerColor;
   for (const l of field.lines) {
     const cut = Math.max(2, Math.floor(l.points.length * l.reveal));
-    ctx.lineWidth = l.width * 0.85;
+    ctx.lineWidth = Math.max(1.2, l.width - 0.6);
     ctx.beginPath();
     for (let i = 0; i < cut; i++) {
       const p = l.points[i];
@@ -133,7 +134,32 @@ export function drawCracks(
     ctx.stroke();
   }
 
+  // 3) 균열 끝에서 안쪽 색의 부드러운 spec light — 갭에서 빛이 새는 느낌
+  ctx.globalCompositeOperation = "lighter";
+  ctx.strokeStyle = withAlpha(innerColor, 0.45);
+  for (const l of field.lines) {
+    const cut = Math.max(2, Math.floor(l.points.length * l.reveal));
+    ctx.lineWidth = Math.max(0.6, l.width * 0.4);
+    ctx.beginPath();
+    for (let i = 0; i < cut; i++) {
+      const p = l.points[i];
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = "source-over";
+
   ctx.restore();
+}
+
+function withAlpha(hex: string, a: number): string {
+  const h = hex.replace("#", "");
+  const v = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const r = parseInt(v.slice(0, 2), 16);
+  const g = parseInt(v.slice(2, 4), 16);
+  const b = parseInt(v.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
 }
 
 export function clearField(field: CrackField) {
