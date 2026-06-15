@@ -229,9 +229,10 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
       );
       ctx!.restore();
 
-      // 4. 균열 (겉면 위, 안쪽 색이 비치도록)
+      // 4. 균열 (겉면 위, 안 색 + 겉 색이 어우러진 갭)
       const innerColor = getInnerColor(variantRef.current);
-      drawCracks(ctx!, crackRef.current, cx, cy, innerColor);
+      const outerColor = getOuterColor(variantRef.current);
+      drawCracks(ctx!, crackRef.current, cx, cy, innerColor, outerColor);
 
       // 5. 파편/먼지
       drawShards(ctx!, shardRef.current, cx, cy);
@@ -354,6 +355,11 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
 function getInnerColor(v: WakppuVariant): string {
   if (v.shell.kind === "donut") return v.shell.innerColors[0] ?? "#ffffff";
   return v.shell.innerColor;
+}
+
+function getOuterColor(v: WakppuVariant): string {
+  if (v.shell.kind === "donut") return v.shell.glaze;
+  return v.shell.outerColor;
 }
 
 function palette4(v: WakppuVariant): string[] {

@@ -91,11 +91,10 @@ export function updateCrackField(field: CrackField, dt: number) {
 }
 
 /**
- * "갈라진 진짜 균열" 처럼 보이게 4겹으로 그림.
- * 1) 균열 옆 음영 — 살짝 넓고 흐릿한 어두운 띠 (깨진 표면의 그림자)
- * 2) 갈라진 갭의 안쪽 그림자 — 좁고 진한 어두움 (깊이감)
- * 3) 안쪽 색이 면적으로 새어 나옴 — innerColor 채움
- * 4) 갭의 중앙 빛 — innerColor 살짝 밝게 (빛이 새는 느낌)
+ * "갈라진 진짜 균열" — 안 색 ⨯ 겉 색을 섞은 톤으로만 그림. 검정 ✕.
+ * 1) 외곽 음영 — 안+겉 mix 의 어두운 버전 (깊이감, 검정 대신)
+ * 2) 갭 면적 — segment 별로 안 색 / 겉 색 / 두 색 mix 를 결정적으로 분배
+ * 3) 갭 중앙 빛 — 안 색의 밝은 버전 (빛이 새는 느낌)
  */
 export function drawCracks(
   ctx: CanvasRenderingContext2D,
@@ -103,17 +102,22 @@ export function drawCracks(
   cx: number,
   cy: number,
   innerColor: string,
+  outerColor: string,
 ) {
   ctx.save();
   ctx.translate(cx, cy);
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  // 1) 외곽 살짝 흐릿한 음영 (깨진 표면이 살짝 떠 보이는 효과)
+  const blend = mixHex(innerColor, outerColor, 0.5);
+  // 두 색의 어두운 버전 — 검정 대신 사용해서 색감 유지
+  const blendShadow = darkenHex(blend, 0.45);
+
+  // 1) 외곽 음영 (검정 대신 색상톤 그림자)
   ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.55)";
+  ctx.shadowColor = withAlpha(blendShadow, 0.55);
   ctx.shadowBlur = 4;
-  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  ctx.strokeStyle = withAlpha(blendShadow, 0.4);
   for (const l of field.lines) {
     const cut = Math.max(2, Math.floor(l.points.length * l.reveal));
     ctx.lineWidth = l.width + 3;
@@ -127,35 +131,19 @@ export function drawCracks(
   }
   ctx.restore();
 
-  // 2) 갭의 진한 그림자 (깊이)
-  ctx.strokeStyle = "rgba(0,0,0,0.85)";
+  // 2) 갭 면적 — segment 별로 색 분배 (안 색 40 / 겉 색 30 / mix 30).
+  //    매 segment 마다 색이 바뀌어 자연스럽게 두 색이 어우러진 갭이 됨.
   for (const l of field.lines) {
     const cut = Math.max(2, Math.floor(l.points.length * l.reveal));
-    ctx.lineWidth = l.width + 0.8;
-    ctx.beginPath();
-    for (let i = 0; i < cut; i++) {
-      const p = l.points[i];
-      if (i === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
-    }
-    ctx.stroke();
-  }
-
-  // 3) 갭 면적 — segment 마다 색이 다름. 한 줄로 그리지 않고 segment 별로
-  //    검정 음영 / 안쪽 색 / 두 색의 혼합 을 결정적(seed) 으로 흩뿌려
-  //    "단일색 stroke" 가 아니라 진짜 깨진 갭처럼 색이 듬성듬성 보임.
-  const mixWithBlack = mixHex(innerColor, "#0c0a0a", 0.55);
-  for (const l of field.lines) {
-    const cut = Math.max(2, Math.floor(l.points.length * l.reveal));
-    ctx.lineWidth = Math.max(1.6, l.width * 0.85);
+    ctx.lineWidth = Math.max(1.8, l.width * 0.92);
     for (let i = 1; i < cut; i++) {
       const a = l.points[i - 1];
       const b = l.points[i];
       const h = hash01(l.seed, i);
       let color: string;
-      if (h < 0.35) color = innerColor;
-      else if (h < 0.65) color = mixWithBlack;
-      else color = "rgba(18,14,14,0.85)";
+      if (h < 0.4) color = innerColor;
+      else if (h < 0.7) color = blend;
+      else color = outerColor;
       ctx.strokeStyle = color;
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
@@ -164,17 +152,15 @@ export function drawCracks(
     }
   }
 
-  // 4) 갭 중앙의 빛 — 안 색을 밝게 띄운 highlight, 가끔만 (segment 의 30%).
-  //    이게 빛이 새어 나오는 인상을 만듦.
+  // 3) 갭 중앙 빛 — 안 색의 밝은 버전, segment 30% 만 spec light.
   ctx.globalCompositeOperation = "lighter";
-  const litColor = withAlpha(lightenColor(innerColor, 0.55), 0.7);
-  ctx.strokeStyle = litColor;
+  ctx.strokeStyle = withAlpha(lightenColor(innerColor, 0.55), 0.65);
   for (const l of field.lines) {
     const cut = Math.max(2, Math.floor(l.points.length * l.reveal));
     ctx.lineWidth = Math.max(0.5, l.width * 0.3);
     for (let i = 1; i < cut; i++) {
       const h = hash01(l.seed + 999, i);
-      if (h > 0.3) continue; // 30% 만 spec light
+      if (h > 0.3) continue;
       const a = l.points[i - 1];
       const b = l.points[i];
       ctx.beginPath();
@@ -186,6 +172,13 @@ export function drawCracks(
   ctx.globalCompositeOperation = "source-over";
 
   ctx.restore();
+}
+
+function darkenHex(hex: string, amount: number): string {
+  const { r, g, b } = parseHex(hex);
+  const f = (c: number) => Math.max(0, Math.round(c * (1 - amount)));
+  const hx = (n: number) => n.toString(16).padStart(2, "0");
+  return `#${hx(f(r))}${hx(f(g))}${hx(f(b))}`;
 }
 
 /** 결정적 PRNG — seed 와 idx 가 같으면 매 프레임 같은 값. */
