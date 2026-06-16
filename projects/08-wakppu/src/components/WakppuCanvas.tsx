@@ -20,27 +20,20 @@ import {
 import { drawShell, drawSlime } from "@/lib/wakppu/wakppuRenderer";
 
 export type WakppuCanvasHandle = {
-  /** 캔버스 좌표 → 왁뿌 중심 기준 로컬 좌표. */
   toLocal: (x: number, y: number) => { x: number; y: number };
-  /** 본체와 충돌하는지(반경 안). */
   isHit: (x: number, y: number) => boolean;
-  /** 짓누르기 시작 — 누른 좌표 기억. */
-  pressStart: (x: number, y: number) => void;
+  /** 짓누르기 시작 — pointerId 로 멀티 터치 추적. */
+  pressStart: (id: number, x: number, y: number) => void;
   /**
-   * 짓누르기 진행 — dt 만큼 누른 상태가 지속됨.
-   * 임계 progress 마다 다음 stage 로 자동 진행하고, 진행 직후 true 반환.
+   * 모든 active press 를 dt 만큼 진행. 같은 프레임에 여러 단계가
+   * 진행되면 advanced 배열에 모두 담겨 옴.
    */
-  pressTick: (dt: number) => { advancedTo: CrackStage | null; progress: number };
-  /** 짓누르기 종료. */
-  pressStop: () => void;
-  /** "다시 만들기" — 0.8s 부드러운 역 애니메이션. */
+  pressTick: (dt: number) => { advanced: CrackStage[]; activeCount: number };
+  pressStop: (id: number) => void;
   rebuild: () => void;
-  /** 즉시 초기 상태로 (variant 변경 시처럼 애니메이션 없이 깔끔하게). */
   reset: () => void;
-  /** 슬라임 드래그 변위. */
   setDrag: (dx: number, dy: number) => void;
   releaseDrag: () => void;
-  /** 현재 stage. */
   getStage: () => CrackStage;
 };
 
@@ -77,11 +70,9 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
   const radiusRef = useRef(140);
   const centerRef = useRef({ x: 0, y: 0 });
 
-  // 짓누름 상태
-  const pressActiveRef = useRef(false);
-  const pressOriginRef = useRef({ x: 0, y: 0 });
-  const pressProgressRef = useRef(0); // 0~1, 1 도달 시 단계 진행
-  const microCrackTimerRef = useRef(0);
+  // 짓누름 상태 — 멀티 터치 지원: pointerId 별로 active press 추적
+  type Press = { id: number; x: number; y: number; progress: number; microTimer: number };
+  const pressMapRef = useRef<Map<number, Press>>(new Map());
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -162,17 +153,24 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
         }
       } else {
         // ── 평상시 ─────────────────────────────────────────────
+        const pressActive = pressMapRef.current.size > 0;
+        // 가장 큰 progress 를 기준으로 다음 stage 미리보기 보간
+        let maxProgress = 0;
+        for (const p of pressMapRef.current.values()) {
+          if (p.progress > maxProgress) maxProgress = p.progress;
+        }
+
         const baseExp = EXP_BY_STAGE[Math.min(5, stageRef.current)];
-        const liveExp = pressActiveRef.current
+        const liveExp = pressActive
           ? baseExp +
             (EXP_BY_STAGE[Math.min(5, stageRef.current + 1)] - baseExp) *
-              pressProgressRef.current *
+              maxProgress *
               0.7
           : baseExp;
         slimeExposureRef.current += (liveExp - slimeExposureRef.current) * 0.18;
 
-        const targetSx = pressActiveRef.current ? 0.95 - pressProgressRef.current * 0.04 : 1;
-        const targetSy = pressActiveRef.current ? 1.05 + pressProgressRef.current * 0.04 : 1;
+        const targetSx = pressActive ? 0.95 - maxProgress * 0.04 : 1;
+        const targetSy = pressActive ? 1.05 + maxProgress * 0.04 : 1;
         squashRef.current.x += (targetSx - squashRef.current.x) * 0.2;
         squashRef.current.y += (targetSy - squashRef.current.y) * 0.2;
 
@@ -180,8 +178,8 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
 
         const baseBroken = BROKEN_BY_STAGE[Math.min(5, stageRef.current)];
         const nextBroken = BROKEN_BY_STAGE[Math.min(5, stageRef.current + 1)];
-        const liveBroken = pressActiveRef.current
-          ? baseBroken + (nextBroken - baseBroken) * pressProgressRef.current
+        const liveBroken = pressActive
+          ? baseBroken + (nextBroken - baseBroken) * maxProgress
           : baseBroken;
         brokenRef.current += (liveBroken - brokenRef.current) * 0.18;
       }
@@ -260,100 +258,99 @@ export default function WakppuCanvas({ variant, onStageChange, onBreak, handleRe
         const dy = y - centerRef.current.y;
         return Math.hypot(dx, dy) <= radiusRef.current * 1.05;
       },
-      pressStart: (x, y) => {
-        pressActiveRef.current = true;
-        pressProgressRef.current = 0;
-        microCrackTimerRef.current = 0;
+      pressStart: (id, x, y) => {
         let local = {
           x: x - centerRef.current.x,
           y: y - centerRef.current.y,
         };
-        // 도넛이면 가운데 구멍 안쪽 클릭은 본체 영역 외곽으로 밀어냄
-        const innerR = getDonutInnerRadius(variantRef.current, radiusRef.current);
-        if (innerR > 0) {
-          const d = Math.hypot(local.x, local.y);
-          if (d < innerR * 1.05) {
-            const ang = d > 0.001 ? Math.atan2(local.y, local.x) : Math.random() * Math.PI * 2;
-            const target = innerR * 1.15;
-            local = { x: Math.cos(ang) * target, y: Math.sin(ang) * target };
-          }
-        }
-        pressOriginRef.current = local;
-      },
-      pressTick: (dt) => {
-        if (!pressActiveRef.current || stageRef.current >= 5) {
-          return { advancedTo: null, progress: pressProgressRef.current };
-        }
-        pressProgressRef.current = Math.min(
-          1,
-          pressProgressRef.current + dt / PROGRESS_PER_STAGE,
-        );
-
-        // 짓누르는 동안 작은 균열을 점진적으로 추가 — "균열이 자라는" 효과
-        microCrackTimerRef.current += dt;
-        const microGap = 95;
         const R = radiusRef.current;
         const innerR = getDonutInnerRadius(variantRef.current, R);
-        while (microCrackTimerRef.current >= microGap) {
-          microCrackTimerRef.current -= microGap;
-          const jitter = 18 + Math.random() * 24;
-          const ang = Math.random() * Math.PI * 2;
-          const origin = clampToShell(
-            {
-              x: pressOriginRef.current.x + Math.cos(ang) * jitter,
-              y: pressOriginRef.current.y + Math.sin(ang) * jitter,
-            },
-            R,
-            innerR,
-          );
-          spawnCrack(
-            crackRef.current,
-            origin,
-            Math.max(1, stageRef.current),
-            R,
-            innerR,
-          );
+        local = clampToShell(local, R, innerR);
+
+        pressMapRef.current.set(id, {
+          id,
+          x: local.x,
+          y: local.y,
+          progress: 0,
+          microTimer: 0,
+        });
+
+        // 누른 즉시 시각 반응 — 균열 한 가닥 + 약한 squash 즉시 적용
+        // (raf 첫 프레임까지 기다리는 딜레이를 없앰)
+        spawnCrack(crackRef.current, local, Math.max(1, stageRef.current + 1), R, innerR);
+        squashRef.current.x = Math.min(squashRef.current.x, 0.95);
+        squashRef.current.y = Math.max(squashRef.current.y, 1.05);
+      },
+      pressTick: (dt) => {
+        const presses = pressMapRef.current;
+        if (presses.size === 0 || stageRef.current >= 5) {
+          return { advanced: [], activeCount: presses.size };
+        }
+        const advanced: CrackStage[] = [];
+        const R = radiusRef.current;
+        const innerR = getDonutInnerRadius(variantRef.current, R);
+        const palette = palette4(variantRef.current);
+        const microGap = 95;
+
+        for (const p of presses.values()) {
+          p.progress = Math.min(1, p.progress + dt / PROGRESS_PER_STAGE);
+
+          // 짓누르는 동안 각 press 주변에 micro 균열
+          p.microTimer += dt;
+          while (p.microTimer >= microGap) {
+            p.microTimer -= microGap;
+            const jitter = 18 + Math.random() * 24;
+            const ang = Math.random() * Math.PI * 2;
+            const origin = clampToShell(
+              { x: p.x + Math.cos(ang) * jitter, y: p.y + Math.sin(ang) * jitter },
+              R,
+              innerR,
+            );
+            spawnCrack(
+              crackRef.current,
+              origin,
+              Math.max(1, stageRef.current),
+              R,
+              innerR,
+            );
+          }
+
+          if (p.progress >= 1 && stageRef.current < 5) {
+            const next = Math.min(5, stageRef.current + 1) as CrackStage;
+            stageRef.current = next;
+            p.progress = 0;
+            const local = { x: p.x, y: p.y };
+            spawnCrack(crackRef.current, local, next, R, innerR);
+            const power = 0.6 + next * 0.2;
+            if (next >= 3) spawnShards(shardRef.current, local, 10 + next * 4, palette, power);
+            if (next >= 2) spawnDust(shardRef.current, local, 6 + next * 3);
+            advanced.push(next);
+            if (next === 5) {
+              spawnShellShards(shardRef.current, R, innerR, palette);
+              spawnDust(shardRef.current, { x: 0, y: 0 }, 16);
+              presses.clear();
+              onBreak();
+              break;
+            }
+          }
         }
 
-        if (pressProgressRef.current >= 1) {
-          const next = Math.min(5, stageRef.current + 1) as CrackStage;
-          stageRef.current = next;
-          pressProgressRef.current = 0;
-          const local = pressOriginRef.current;
-          spawnCrack(crackRef.current, local, next, R, innerR);
-          const palette = palette4(variantRef.current);
-          const power = 0.6 + next * 0.2;
-          if (next >= 3) spawnShards(shardRef.current, local, 10 + next * 4, palette, power);
-          if (next >= 2) spawnDust(shardRef.current, local, 6 + next * 3);
-          if (next === 5) {
-            // 완파지만 표면 18% 남는 자연스러운 톤. 도넛이면 가운데
-            // 구멍 안에서 파편이 안 튀게 일정 반경(annulus) 안에 spawn.
-            spawnShellShards(shardRef.current, R, innerR, palette);
-            spawnDust(shardRef.current, { x: 0, y: 0 }, 16);
-            pressActiveRef.current = false;
-            onBreak();
-          }
-          onStageChange(next);
-          return { advancedTo: next, progress: 0 };
-        }
-        return { advancedTo: null, progress: pressProgressRef.current };
+        if (advanced.length > 0) onStageChange(stageRef.current);
+        return { advanced, activeCount: presses.size };
       },
-      pressStop: () => {
-        pressActiveRef.current = false;
-        // pressProgress 는 유지 — 짧게 톡톡 누르고 떼도 누적되어 단계 진행
-        microCrackTimerRef.current = 0;
+      pressStop: (id) => {
+        // pressProgress 는 유지하지 않고 entry 만 제거 — 짧은 탭이
+        // 누적되도록 progress 는 남기고 싶다면 별도 history Map 필요.
+        // 단순화: tap 모드는 빠른 짓누름을 가정.
+        pressMapRef.current.delete(id);
       },
       rebuild: () => {
         rebuildRef.current = 1;
-        pressActiveRef.current = false;
-        pressProgressRef.current = 0;
+        pressMapRef.current.clear();
       },
       reset: () => {
-        // variant 교체 시처럼 애니메이션 없이 즉시 0 으로
         rebuildRef.current = 0;
-        pressActiveRef.current = false;
-        pressProgressRef.current = 0;
-        microCrackTimerRef.current = 0;
+        pressMapRef.current.clear();
         brokenRef.current = 0;
         slimeExposureRef.current = 0;
         squashRef.current = { x: 1, y: 1 };

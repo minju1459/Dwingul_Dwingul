@@ -59,7 +59,7 @@ export default function WakppuStage() {
 
   const handleRef = useRef<WakppuCanvasHandle | null>(null);
   const lastBreakAtRef = useRef(0);
-  const draggingRef = useRef(false);
+  const draggingPointersRef = useRef<Set<number>>(new Set());
   const pressRafRef = useRef(0);
   const lastTickRef = useRef(0);
   const variantRef = useRef(variant);
@@ -108,31 +108,35 @@ export default function WakppuStage() {
       pressRafRef.current = 0;
     }
     stopCrackle();
-    handleRef.current?.pressStop();
+    // press entry 정리는 onPointerEnd 에서 pointerId 별로 이미 처리됨
   }, []);
 
   const startPressLoop = useCallback(() => {
+    if (pressRafRef.current) return; // 이미 돌고 있으면 중복 시작 금지
     lastTickRef.current = performance.now();
     const step = (now: number) => {
       const dt = Math.min(now - lastTickRef.current, 50);
       lastTickRef.current = now;
       const handle = handleRef.current;
-      if (!handle) return;
+      if (!handle) {
+        pressRafRef.current = 0;
+        return;
+      }
       const result = handle.pressTick(dt);
-      if (result.advancedTo !== null) {
-        // 단계 진행 임팩트 — 짧은 흔들림 + 추가 micro-pop
+      if (result.advanced.length > 0) {
+        // 같은 프레임에 여러 단계 진행 가능
+        const last = result.advanced[result.advanced.length - 1];
         setShake("soft");
         setTimeout(() => setShake("none"), 200);
-        playMicroPop(result.advancedTo, variantRef.current.toneHint, 1.1);
+        playMicroPop(last, variantRef.current.toneHint, 1.1);
         if (typeof navigator !== "undefined" && "vibrate" in navigator) {
           navigator.vibrate(12);
         }
-        // 사운드 강도/단계 업데이트
-        if (result.advancedTo < 5) {
-          startCrackle(result.advancedTo, variantRef.current.toneHint);
+        if (last < 5) {
+          startCrackle(last, variantRef.current.toneHint);
         }
       }
-      if (handle.getStage() >= 5) {
+      if (handle.getStage() >= 5 || result.activeCount === 0) {
         stopPressLoop();
         return;
       }
@@ -153,14 +157,13 @@ export default function WakppuStage() {
 
       const curStage = handle.getStage();
       if (curStage >= 5) {
-        draggingRef.current = true;
+        draggingPointersRef.current.add(e.pointerId);
         return;
       }
 
-      // user-gesture 안에서 ctx.resume + sustained.mp3 디코드를 await.
-      // iOS/모바일 Safari 의 자동재생 제한 우회 + 첫 누름에 mp3 가 바로 깔림.
+      // 멀티 터치 지원: 각 pointerId 별로 독립 press 시작
       target.setPointerCapture?.(e.pointerId);
-      handle.pressStart(x, y);
+      handle.pressStart(e.pointerId, x, y);
       const startStage = Math.max(1, curStage + 1) as CrackStage;
       const toneHint = variantRef.current.toneHint;
       void ensureAudioRunning().then(() => startCrackle(startStage, toneHint));
@@ -174,7 +177,7 @@ export default function WakppuStage() {
   );
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!draggingRef.current) return;
+    if (!draggingPointersRef.current.has(e.pointerId)) return;
     const handle = handleRef.current;
     if (!handle) return;
     const target = e.currentTarget as HTMLDivElement;
@@ -185,13 +188,20 @@ export default function WakppuStage() {
     handle.setDrag(local.x, local.y);
   }, []);
 
-  const onPointerEnd = useCallback(() => {
-    if (draggingRef.current) {
-      draggingRef.current = false;
-      handleRef.current?.releaseDrag();
-    }
-    stopPressLoop();
-  }, [stopPressLoop]);
+  const onPointerEnd = useCallback(
+    (e: React.PointerEvent) => {
+      const id = e.pointerId;
+      if (draggingPointersRef.current.has(id)) {
+        draggingPointersRef.current.delete(id);
+        if (draggingPointersRef.current.size === 0) {
+          handleRef.current?.releaseDrag();
+        }
+      }
+      // 멀티 press 중 하나가 떨어진 거 — 그 한 개만 종료
+      handleRef.current?.pressStop(id);
+    },
+    [],
+  );
 
   const onSelectVariant = useCallback((v: WakppuVariant) => {
     setVariant(v);
